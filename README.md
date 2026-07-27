@@ -1,3 +1,5 @@
+# Much easier to read and navigate the pdf in docs
+
 # Sick Ollie Node Pack
 
 > **A compact ComfyUI node pack for LoRA testing, prompt-log automation, Krea2 generation, metadata-aware output, and image previews with pizazz.**
