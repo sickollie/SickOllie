@@ -1,0 +1,10 @@
+# Large documentation and release extras
+docs/
+Starter Content/
+*.pdf
+
+# Development and design files
+*.psd
+.vscode/
+__pycache__/
+*.pyc
