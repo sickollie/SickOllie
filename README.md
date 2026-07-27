@@ -1,3 +1,5 @@
+# [Sick Ollie Krea2 Model](https://civitai.red/models/2676616/sick-ollie)
+
 # Much easier to read and navigate the pdf in docs
 
 # Sick Ollie Node Pack
