@@ -1,6 +1,6 @@
 [project]
 name = "sick-ollie-node-pack"
-version = "1.1.0"
+version = "1.1.1"
 description = "A compact ComfyUI node pack for LoRA testing, prompt-log automation, Krea2 generation, metadata-aware output, and image previews with pizazz."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
