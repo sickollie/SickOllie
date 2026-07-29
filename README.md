@@ -1,6 +1,42 @@
 # Sick Ollie Node Pack
 
+## [Sick Ollie Krea 2 Model](https://civitai.red/models/2676616/sick-ollie)
+
 > **A compact ComfyUI node pack for LoRA testing, prompt-log automation, Krea2 generation, metadata-aware output, and image previews with pizazz.**
+
+---
+
+## What’s New in v1.1
+
+### Loader Core
+
+- Added an **epoch filter** that detects common filename formats such as `epoch1`, `epoch_1`, `epoch-01`, and `epoch 001`, then limits the main LoRA list and cycling pool to the selected epoch.
+- Replaced manual clean-name rules with an **automatic clean-name dropdown** that offers practical name choices based on the selected LoRA and its active folder pool.
+- Expanded the secondary LoRA section to **10 persistent slots**. Added LoRAs, strengths, and enabled states now survive workflow tab changes, saved workflow reloads, and workflow-bearing image imports.
+- Added **main LoRA trigger detection** from SafeTensor metadata. The detected value appears immediately on a copy button when the LoRA is selected.
+- Added a new `main_trigger` string output for wiring detected triggers into Prompt Core or other text inputs.
+- Trigger detection checks explicit trigger metadata first, then the best available `ss_tag_frequency` candidate, then `modelspec.title`. LoRAs with no usable trigger metadata display `none`.
+- When the main LoRA is disabled, `main_trigger` stays blank during execution so an inactive LoRA cannot accidentally inject its trigger into connected prompt fields.
+
+### Prompt Core
+
+- Added three independent outfit channels: `OUTFIT_A`, `OUTFIT_B`, and `OUTFIT_C`, each with its own log, mode, and index.
+- Prompt, outfit, and scene logs now **always loop** and automatically skip blank lines. Redundant loop and enable controls were removed.
+- Added copy buttons for the current `OUTFIT_A`, `OUTFIT_B`, `OUTFIT_C`, `SCENE`, `NAME`, and `ITEM` tokens.
+- Added true, independent **prefix** and **suffix** controls with a configurable separator.
+- Prompt Core now preserves its tokens, indexes, cleanup rules, prefix and suffix settings, and resolved prompt display after tab changes, workflow reloads, and workflow-bearing image imports.
+
+### Output Core
+
+- Added copy buttons for resolved `clean_name`, `raw_stem`, `model_name`, prompt index, outfit index, and scene index, plus a **Copy All** button.
+- Resolved values and the final saved path now remain visible after reopening the workflow.
+- Clarified the metadata toggle labels and removed redundant inline preview clutter.
+
+### Preview Core
+
+- The displayed preview image now restores after switching workflow tabs, reopening saved workflows, or importing a workflow-bearing image.
+
+> **Updated guide:** The bundled v1.1 Field Guide documents the current Loader, Prompt, Output, and Preview Core behavior in detail.
 
 The Sick Ollie Node Pack is a connected production system built around one guiding idea:
 
