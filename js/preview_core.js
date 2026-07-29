@@ -2,6 +2,8 @@ import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
 const TARGET = "SOFitPreview";
+const STORED_IMAGES_PROPERTY = "so_fit_preview_images";
+const STORED_INDEX_PROPERTY = "so_fit_preview_index";
 
 function widgetValue(node, name, fallback) {
     const item = node.widgets?.find((w) => w.name === name);
@@ -20,6 +22,19 @@ function drawChecker(ctx, x, y, w, h) {
     }
 }
 
+function cleanImageData(data) {
+    if (!data || typeof data !== "object") return null;
+
+    const filename = String(data.filename || "");
+    if (!filename) return null;
+
+    return {
+        filename,
+        type: String(data.type || "temp"),
+        subfolder: String(data.subfolder || ""),
+    };
+}
+
 function imageDataToUrl(data) {
     const filename = encodeURIComponent(data?.filename || "");
     const type = encodeURIComponent(data?.type || "temp");
@@ -34,22 +49,81 @@ function imageDataToUrl(data) {
     );
 }
 
-function loadExecutedPreviewImages(node, output) {
-    const imageData = output?.images || output?.ui?.images || [];
-    if (!Array.isArray(imageData)) return;
+function persistPreviewState(node, imageData) {
+    node.properties = node.properties || {};
+    node.properties[STORED_IMAGES_PROPERTY] = imageData.map((item) => ({ ...item }));
+    node.properties[STORED_INDEX_PROPERTY] = Number(node.__soFitImageIndex || 0);
+}
 
+function loadPreviewImages(node, sourceData, { persist = false, force = false } = {}) {
+    const imageData = (Array.isArray(sourceData) ? sourceData : [])
+        .map(cleanImageData)
+        .filter(Boolean);
+
+    if (!imageData.length) return false;
+
+    const key = JSON.stringify(imageData);
+    if (!force && node.__soFitImageDataKey === key && node.__soFitImages?.length) {
+        return true;
+    }
+
+    node.__soFitImageData = imageData;
+    node.__soFitImageDataKey = key;
     node.__soFitImages = [];
-    node.__soFitImageIndex = 0;
+    node.__soFitImageIndex = Math.min(
+        Math.max(0, Number(node.__soFitImageIndex || 0)),
+        imageData.length - 1,
+    );
+    node.__soFitImageLoadFailed = false;
+    node.__soFitImageLoadsPending = imageData.length;
 
     for (const data of imageData) {
         const image = new Image();
-        image.onload = () => node.setDirtyCanvas?.(true, true);
-        image.onerror = () => console.error("[Sick Ollie Preview Core] Failed to load preview image", data);
+        image.decoding = "async";
+        image.onload = () => {
+            node.__soFitImageLoadsPending = Math.max(
+                0,
+                Number(node.__soFitImageLoadsPending || 1) - 1,
+            );
+            node.setDirtyCanvas?.(true, true);
+        };
+        image.onerror = () => {
+            node.__soFitImageLoadsPending = Math.max(
+                0,
+                Number(node.__soFitImageLoadsPending || 1) - 1,
+            );
+            node.__soFitImageLoadFailed = true;
+            console.warn(
+                "[Sick Ollie Preview Core] Stored preview could not be restored. Queue once to refresh it.",
+                data,
+            );
+            node.setDirtyCanvas?.(true, true);
+        };
         image.src = imageDataToUrl(data);
         node.__soFitImages.push(image);
     }
 
+    if (persist) {
+        persistPreviewState(node, imageData);
+    }
+
     node.setDirtyCanvas?.(true, true);
+    return true;
+}
+
+function restoreStoredPreview(node, force = false) {
+    const stored = node.properties?.[STORED_IMAGES_PROPERTY];
+    if (!Array.isArray(stored) || !stored.length) return false;
+
+    const storedIndex = Number(node.properties?.[STORED_INDEX_PROPERTY] || 0);
+    node.__soFitImageIndex = Number.isFinite(storedIndex) ? storedIndex : 0;
+    return loadPreviewImages(node, stored, { persist: false, force });
+}
+
+function loadExecutedPreviewImages(node, output) {
+    const imageData = output?.images || output?.ui?.images || [];
+    if (!Array.isArray(imageData)) return;
+    loadPreviewImages(node, imageData, { persist: true, force: true });
 }
 
 function installPreviewCore(node) {
@@ -73,6 +147,10 @@ function installPreviewCore(node) {
     node.onDrawBackground = function (ctx) {
         if (this.flags?.collapsed) {
             return originalDrawBackground?.apply(this, arguments);
+        }
+
+        if (!this.__soFitImages?.length && !this.__soFitImageLoadFailed) {
+            restoreStoredPreview(this, false);
         }
 
         const images = this.__soFitImages || [];
@@ -103,7 +181,13 @@ function installPreviewCore(node) {
             ctx.font = "16px Segoe UI";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("Waiting for image…", width / 2, y + height / 2);
+            ctx.fillText(
+                this.__soFitImageLoadFailed
+                    ? "Preview expired • queue once to refresh"
+                    : "Waiting for image…",
+                width / 2,
+                y + height / 2,
+            );
             ctx.restore();
             return;
         }
@@ -154,6 +238,10 @@ function installPreviewCore(node) {
         ctx.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1);
         ctx.restore();
     };
+
+    // A workflow tab can recreate the graph without re-executing the node.
+    // Restore the last temp-preview metadata after the node is installed.
+    setTimeout(() => restoreStoredPreview(node, true), 0);
 }
 
 app.registerExtension({
@@ -170,6 +258,7 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function (info) {
             const result = originalConfigure?.apply(this, arguments);
             installPreviewCore(this);
+            setTimeout(() => restoreStoredPreview(this, true), 0);
             return result;
         };
     },

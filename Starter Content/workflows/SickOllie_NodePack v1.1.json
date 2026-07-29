@@ -1,0 +1,789 @@
+{
+  "id": "7c0c4133-f8b2-4e19-a3cc-f417cb7b5c8c",
+  "revision": 2,
+  "last_node_id": 497,
+  "last_link_id": 945,
+  "nodes": [
+    {
+      "id": 459,
+      "type": "SOLoaderCoreEngine",
+      "pos": [
+        300,
+        3530
+      ],
+      "size": [
+        570,
+        910
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            930
+          ]
+        },
+        {
+          "name": "diffusion_model_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "diffusion_model_stem",
+          "type": "STRING",
+          "links": [
+            924
+          ]
+        },
+        {
+          "name": "main_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "raw_stem",
+          "type": "STRING",
+          "links": [
+            920
+          ]
+        },
+        {
+          "name": "clean_name",
+          "type": "STRING",
+          "links": [
+            921,
+            944
+          ]
+        },
+        {
+          "name": "applied_loras",
+          "type": "STRING",
+          "links": [
+            923
+          ]
+        },
+        {
+          "name": "main_active",
+          "type": "BOOLEAN",
+          "links": null
+        },
+        {
+          "name": "folder_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "main_trigger",
+          "type": "STRING",
+          "links": [
+            945
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOLoaderCoreEngine"
+      },
+      "widgets_values": [
+        "SICK OLLIE_Krea2_FP8.safetensors",
+        "default",
+        "SickOllie/characters",
+        "[All epochs]",
+        true,
+        "SickOllie\\characters\\sickdolls\\scout_krea2_sickollie.safetensors",
+        1,
+        true,
+        true,
+        "fixed",
+        true,
+        "no_lora",
+        true,
+        "1 · scout",
+        null,
+        null,
+        null,
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\olliephoto\\olliephoto_epoch_30.safetensors",
+          "strength": 1
+        },
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\scenegirls\\scene_krea2_epoch_20.safetensors",
+          "strength": 1
+        },
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\sick neon\\sickneon_v2_krea2_epoch_8.safetensors",
+          "strength": 1
+        },
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\sicklight\\sicklight_krea2_v1_epoch_20.safetensors",
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        }
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 493,
+      "type": "SOPromptLogEngine",
+      "pos": [
+        940,
+        3530
+      ],
+      "size": [
+        580,
+        2076
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "name_value",
+          "type": "STRING",
+          "widget": {
+            "name": "name_value"
+          },
+          "link": 944
+        },
+        {
+          "name": "prefix_text",
+          "type": "STRING",
+          "widget": {
+            "name": "prefix_text"
+          },
+          "link": 945
+        }
+      ],
+      "outputs": [
+        {
+          "name": "final_prompt",
+          "type": "STRING",
+          "links": [
+            943
+          ]
+        },
+        {
+          "name": "source_prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "prompt_line",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "outfit_line",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "scene_line",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "prompt_index_resolved",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "outfit_index_resolved",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "scene_index_resolved",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "prompt_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "outfit_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "scene_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "prompt_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "outfit_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "scene_file",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOPromptLogEngine",
+        "so_prompt_core_schema_version": 10,
+        "so_saved_final_prompt": "scout, A vertical neon-vaporwave software poster built around exactly two clearly readable text elements: “SICK OLLIE” and “node pack.”  Enormous hand-painted brush-script lettering reading “SICK OLLIE” stretches across the central composition with a strong, nearly level baseline and generous spacing between the words. Every letter is fully formed, completely opaque, unobstructed, and immediately readable.  The title occupies the foremost visual layer. Nothing crosses through the letters or interrupts their silhouettes. The painted strokes are thick, energetic, fast, and slightly irregular, with fluorescent hot-pink surfaces, a crisp acid-yellow lower-right offset, a brilliant pink-white interior glow, tactile brush ridges, and controlled magenta bloom. A long sweeping underline extends beneath the complete phrase without touching the lettering.  Far behind the title, an enormous stylized feminine creature face is faintly embedded within the fluorescent liquid field like a hidden apparition. Only selected features are visible: glossy expressive eyes, wispy dark bangs, softly airbrushed flushed cheeks, tiny pointed horn-like shapes partly hidden in the hair, glossy black-cherry lips, and two small polished fangs.  Her expression is exaggeratedly coy and self-aware. One eye closes in a dramatic playful wink while the open eye looks directly outward with a glossy, teasing gaze. One eyebrow lifts slightly, her cheek rises beneath the wink, and the corner of her mouth curls into a smug little smile.  Her lips are parted just enough to reveal both tiny fangs. The tip of her tongue slides slowly across her glossy lower lip in a clear lip-licking gesture, visible at one corner of her mouth without obscuring the teeth or distorting the face.  Thin drops of iridescent blood cling to the tips of her fangs and trail delicately onto her lips. The liquid is luminous and pearlescent rather than naturalistic, shifting through crimson, hot pink, violet, electric cyan, and tiny acid-yellow highlights. A few glossy droplets stretch into fine threads between fang and lip, catching concentrated white-cyan glints like liquid holographic lacquer.  The face feels cute, shameless, dangerous, and playfully predatory rather than monstrous. Her open iris reflects cyan, violet, hot pink, and tiny acid-yellow sparks. The tiny fangs remain small, elegant, and unmistakably visible.  The face resembles a rare late-1980s airbrushed album illustration fused with futuristic editorial beauty art. It is not a fully realistic portrait and does not become a cartoon mascot.  Small glowing node points orbit the face like artificial freckles. Delicate cyan and magenta connector traces link selected points around the cheeks, temples, and hair, forming a loose modular constellation. A few points resemble candy beads, tiny stars, polished droplets, and miniature chrome charms.  The apparition remains low-contrast, semi-transparent, and secondary. Her eyes, tongue, lips, fangs, and iridescent droplets never cross over the title. Portions of her face disappear behind the opaque lettering and dissolve into black negative space, liquid pigment, holographic haze, and analog color bleed.  The words “node pack” appear beneath the right side of the painted underline, stamped into a small polished chrome plate with rounded clipped corners. The lettering is clean lowercase black geometric type, sharply readable against pale reflective metal. Narrow cyan and violet reflections run along the plate edges, making it feel attached to the title like a premium hardware badge.  The entire background is a flat, continuous macro field of fluorescent liquid color filling the poster from the top edge to the bottom edge. There is no horizon, floor, water surface, landscape, room, sky, or vanishing point.  Organic pools, glowing cellular forms, smeared streaks, blurry rings, oily marbling, soft neon blobs, turbulent dye currents, and irregular rippling bands of hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow move through a deep black foundation.  Large regions of black negative space preserve title clarity. Sparse white glints create prismatic rainbow glares, while smaller highlights resemble wet lacquer, liquid chrome, fluorescent gel, iridescent blood, and glossy resin.  Fluorescent dye bleed, airbrushed vaporwave illustration, holographic color separation, VHS softness, analog grain, chromatic misregistration, radiant neon halation, and rough brush texture"
+      },
+      "widgets_values": [
+        "manual",
+        "A vertical neon-vaporwave software poster built around exactly two clearly readable text elements: “SICK OLLIE” and “node pack.”  Enormous hand-painted brush-script lettering reading “SICK OLLIE” stretches across the central composition with a strong, nearly level baseline and generous spacing between the words. Every letter is fully formed, completely opaque, unobstructed, and immediately readable.  The title occupies the foremost visual layer. Nothing crosses through the letters or interrupts their silhouettes. The painted strokes are thick, energetic, fast, and slightly irregular, with fluorescent hot-pink surfaces, a crisp acid-yellow lower-right offset, a brilliant pink-white interior glow, tactile brush ridges, and controlled magenta bloom. A long sweeping underline extends beneath the complete phrase without touching the lettering.  Far behind the title, an enormous stylized feminine creature face is faintly embedded within the fluorescent liquid field like a hidden apparition. Only selected features are visible: glossy expressive eyes, wispy dark bangs, softly airbrushed flushed cheeks, tiny pointed horn-like shapes partly hidden in the hair, glossy black-cherry lips, and two small polished fangs.  Her expression is exaggeratedly coy and self-aware. One eye closes in a dramatic playful wink while the open eye looks directly outward with a glossy, teasing gaze. One eyebrow lifts slightly, her cheek rises beneath the wink, and the corner of her mouth curls into a smug little smile.  Her lips are parted just enough to reveal both tiny fangs. The tip of her tongue slides slowly across her glossy lower lip in a clear lip-licking gesture, visible at one corner of her mouth without obscuring the teeth or distorting the face.  Thin drops of iridescent blood cling to the tips of her fangs and trail delicately onto her lips. The liquid is luminous and pearlescent rather than naturalistic, shifting through crimson, hot pink, violet, electric cyan, and tiny acid-yellow highlights. A few glossy droplets stretch into fine threads between fang and lip, catching concentrated white-cyan glints like liquid holographic lacquer.  The face feels cute, shameless, dangerous, and playfully predatory rather than monstrous. Her open iris reflects cyan, violet, hot pink, and tiny acid-yellow sparks. The tiny fangs remain small, elegant, and unmistakably visible.  The face resembles a rare late-1980s airbrushed album illustration fused with futuristic editorial beauty art. It is not a fully realistic portrait and does not become a cartoon mascot.  Small glowing node points orbit the face like artificial freckles. Delicate cyan and magenta connector traces link selected points around the cheeks, temples, and hair, forming a loose modular constellation. A few points resemble candy beads, tiny stars, polished droplets, and miniature chrome charms.  The apparition remains low-contrast, semi-transparent, and secondary. Her eyes, tongue, lips, fangs, and iridescent droplets never cross over the title. Portions of her face disappear behind the opaque lettering and dissolve into black negative space, liquid pigment, holographic haze, and analog color bleed.  The words “node pack” appear beneath the right side of the painted underline, stamped into a small polished chrome plate with rounded clipped corners. The lettering is clean lowercase black geometric type, sharply readable against pale reflective metal. Narrow cyan and violet reflections run along the plate edges, making it feel attached to the title like a premium hardware badge.  The entire background is a flat, continuous macro field of fluorescent liquid color filling the poster from the top edge to the bottom edge. There is no horizon, floor, water surface, landscape, room, sky, or vanishing point.  Organic pools, glowing cellular forms, smeared streaks, blurry rings, oily marbling, soft neon blobs, turbulent dye currents, and irregular rippling bands of hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow move through a deep black foundation.  Large regions of black negative space preserve title clarity. Sparse white glints create prismatic rainbow glares, while smaller highlights resemble wet lacquer, liquid chrome, fluorescent gel, iridescent blood, and glossy resin.  Fluorescent dye bleed, airbrushed vaporwave illustration, holographic color separation, VHS softness, analog grain, chromatic misregistration, radiant neon halation, and rough brush texture",
+        "[None]",
+        "randomize",
+        261599403,
+        "OUTFIT_A",
+        "[None]",
+        "randomize",
+        803291100,
+        "OUTFIT_B",
+        "[None]",
+        "randomize",
+        0,
+        "OUTFIT_C",
+        "[None]",
+        "randomize",
+        0,
+        "SCENE",
+        "[None]",
+        "randomize",
+        0,
+        "NAME",
+        "",
+        "ITEM",
+        "",
+        true,
+        "",
+        false,
+        "",
+        ", ",
+        true,
+        "\\?\\[|\\]\n\\\\?[()]\n:\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)",
+        "scout, A vertical neon-vaporwave software poster built around exactly two clearly readable text elements: “SICK OLLIE” and “node pack.”  Enormous hand-painted brush-script lettering reading “SICK OLLIE” stretches across the central composition with a strong, nearly level baseline and generous spacing between the words. Every letter is fully formed, completely opaque, unobstructed, and immediately readable.  The title occupies the foremost visual layer. Nothing crosses through the letters or interrupts their silhouettes. The painted strokes are thick, energetic, fast, and slightly irregular, with fluorescent hot-pink surfaces, a crisp acid-yellow lower-right offset, a brilliant pink-white interior glow, tactile brush ridges, and controlled magenta bloom. A long sweeping underline extends beneath the complete phrase without touching the lettering.  Far behind the title, an enormous stylized feminine creature face is faintly embedded within the fluorescent liquid field like a hidden apparition. Only selected features are visible: glossy expressive eyes, wispy dark bangs, softly airbrushed flushed cheeks, tiny pointed horn-like shapes partly hidden in the hair, glossy black-cherry lips, and two small polished fangs.  Her expression is exaggeratedly coy and self-aware. One eye closes in a dramatic playful wink while the open eye looks directly outward with a glossy, teasing gaze. One eyebrow lifts slightly, her cheek rises beneath the wink, and the corner of her mouth curls into a smug little smile.  Her lips are parted just enough to reveal both tiny fangs. The tip of her tongue slides slowly across her glossy lower lip in a clear lip-licking gesture, visible at one corner of her mouth without obscuring the teeth or distorting the face.  Thin drops of iridescent blood cling to the tips of her fangs and trail delicately onto her lips. The liquid is luminous and pearlescent rather than naturalistic, shifting through crimson, hot pink, violet, electric cyan, and tiny acid-yellow highlights. A few glossy droplets stretch into fine threads between fang and lip, catching concentrated white-cyan glints like liquid holographic lacquer.  The face feels cute, shameless, dangerous, and playfully predatory rather than monstrous. Her open iris reflects cyan, violet, hot pink, and tiny acid-yellow sparks. The tiny fangs remain small, elegant, and unmistakably visible.  The face resembles a rare late-1980s airbrushed album illustration fused with futuristic editorial beauty art. It is not a fully realistic portrait and does not become a cartoon mascot.  Small glowing node points orbit the face like artificial freckles. Delicate cyan and magenta connector traces link selected points around the cheeks, temples, and hair, forming a loose modular constellation. A few points resemble candy beads, tiny stars, polished droplets, and miniature chrome charms.  The apparition remains low-contrast, semi-transparent, and secondary. Her eyes, tongue, lips, fangs, and iridescent droplets never cross over the title. Portions of her face disappear behind the opaque lettering and dissolve into black negative space, liquid pigment, holographic haze, and analog color bleed.  The words “node pack” appear beneath the right side of the painted underline, stamped into a small polished chrome plate with rounded clipped corners. The lettering is clean lowercase black geometric type, sharply readable against pale reflective metal. Narrow cyan and violet reflections run along the plate edges, making it feel attached to the title like a premium hardware badge.  The entire background is a flat, continuous macro field of fluorescent liquid color filling the poster from the top edge to the bottom edge. There is no horizon, floor, water surface, landscape, room, sky, or vanishing point.  Organic pools, glowing cellular forms, smeared streaks, blurry rings, oily marbling, soft neon blobs, turbulent dye currents, and irregular rippling bands of hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow move through a deep black foundation.  Large regions of black negative space preserve title clarity. Sparse white glints create prismatic rainbow glares, while smaller highlights resemble wet lacquer, liquid chrome, fluorescent gel, iridescent blood, and glossy resin.  Fluorescent dye bleed, airbrushed vaporwave illustration, holographic color separation, VHS softness, analog grain, chromatic misregistration, radiant neon halation, and rough brush texture"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 482,
+      "type": "SOGenerationPipeline",
+      "pos": [
+        1590,
+        3530
+      ],
+      "size": [
+        570,
+        870
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 930
+        },
+        {
+          "name": "positive_text",
+          "type": "STRING",
+          "link": 943
+        }
+      ],
+      "outputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "links": [
+            926
+          ]
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "links": [
+            927
+          ]
+        },
+        {
+          "name": "seed_used",
+          "type": "INT",
+          "links": [
+            928
+          ]
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "generation_info",
+          "type": "STRING",
+          "links": [
+            929
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOGenerationPipeline",
+        "so_generation_core_schema_version": 26,
+        "so_last_used_seed": 348898830308347,
+        "so_last_width": 864,
+        "so_last_height": 1152
+      },
+      "widgets_values": [
+        "K\\qwen3vl_4b_fp8_scaled.safetensors",
+        "krea2",
+        "default",
+        "qwen_image_vae.safetensors",
+        "custom",
+        1440,
+        1920,
+        "3:4 (Portrait Standard)",
+        1,
+        1,
+        9,
+        1,
+        "euler",
+        "beta",
+        1,
+        1.25,
+        348898830308347,
+        null,
+        null,
+        null,
+        null
+      ],
+      "color": "#009933",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 457,
+      "type": "SOOutputBuilderSave",
+      "pos": [
+        1590,
+        4480
+      ],
+      "size": [
+        570,
+        1268
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 911
+        },
+        {
+          "name": "generation_info",
+          "shape": 7,
+          "type": "STRING",
+          "link": 929
+        },
+        {
+          "name": "applied_loras",
+          "shape": 7,
+          "type": "STRING",
+          "link": 923
+        },
+        {
+          "name": "clean_name",
+          "type": "STRING",
+          "widget": {
+            "name": "clean_name"
+          },
+          "link": 921
+        },
+        {
+          "name": "raw_stem",
+          "type": "STRING",
+          "widget": {
+            "name": "raw_stem"
+          },
+          "link": 920
+        },
+        {
+          "name": "model_name",
+          "type": "STRING",
+          "widget": {
+            "name": "model_name"
+          },
+          "link": 924
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 928
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            932
+          ]
+        },
+        {
+          "name": "save_path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "subfolder",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOOutputBuilderSave",
+        "so_saved_output_path": "C:\\Users\\andyw\\Documents\\ComfyUI\\output\\_SickOllie_photo\\scout\\scout_krea2_sickollie_SICK OLLIE_Krea2_FP8_222032_00001.png",
+        "so_output_resolved_values": {
+          "clean_name": "scout",
+          "raw_stem": "scout_krea2_sickollie",
+          "model_name": "SICK OLLIE_Krea2_FP8",
+          "prompt_index": "0",
+          "outfit_index": "0",
+          "scene_index": "0"
+        }
+      },
+      "widgets_values": [
+        "_SickOllie_photo",
+        "",
+        "clean_name",
+        "[None]",
+        "[None]",
+        "[None]",
+        "_",
+        "",
+        "raw_stem",
+        "model_name",
+        "time_hhmmss",
+        "[None]",
+        "[None]",
+        "[None]",
+        "_",
+        "png",
+        100,
+        5,
+        true,
+        true,
+        true,
+        "",
+        "",
+        "",
+        1067818384785872,
+        0,
+        0,
+        0,
+        0,
+        "",
+        "",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        "C:\\Users\\andyw\\Documents\\ComfyUI\\output\\_SickOllie_photo\\scout\\scout_krea2_sickollie_SICK OLLIE_Krea2_FP8_222032_00001.png"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 458,
+      "type": "VAEDecode",
+      "pos": [
+        1590,
+        5810
+      ],
+      "size": [
+        140,
+        46
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 926
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 927
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            911
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": [],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 484,
+      "type": "SOFitPreview",
+      "pos": [
+        2230,
+        3530
+      ],
+      "size": [
+        1550,
+        2220
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 932
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOFitPreview",
+        "so_fit_preview_images": [
+          {
+            "filename": "SickOllieFitPreview_temp_hbvuk_00200_.png",
+            "type": "temp",
+            "subfolder": ""
+          }
+        ],
+        "so_fit_preview_index": 0
+      },
+      "widgets_values": [
+        "Contain + Upscale",
+        "Blurred Image",
+        "#000000"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    }
+  ],
+  "links": [
+    [
+      911,
+      458,
+      0,
+      457,
+      0,
+      "IMAGE"
+    ],
+    [
+      920,
+      459,
+      4,
+      457,
+      4,
+      "STRING"
+    ],
+    [
+      921,
+      459,
+      5,
+      457,
+      3,
+      "STRING"
+    ],
+    [
+      923,
+      459,
+      6,
+      457,
+      2,
+      "STRING"
+    ],
+    [
+      924,
+      459,
+      2,
+      457,
+      5,
+      "STRING"
+    ],
+    [
+      926,
+      482,
+      0,
+      458,
+      0,
+      "LATENT"
+    ],
+    [
+      927,
+      482,
+      1,
+      458,
+      1,
+      "VAE"
+    ],
+    [
+      928,
+      482,
+      2,
+      457,
+      6,
+      "INT"
+    ],
+    [
+      929,
+      482,
+      5,
+      457,
+      1,
+      "STRING"
+    ],
+    [
+      930,
+      459,
+      0,
+      482,
+      0,
+      "MODEL"
+    ],
+    [
+      932,
+      457,
+      0,
+      484,
+      0,
+      "IMAGE"
+    ],
+    [
+      943,
+      493,
+      0,
+      482,
+      1,
+      "STRING"
+    ],
+    [
+      944,
+      459,
+      5,
+      493,
+      0,
+      "STRING"
+    ],
+    [
+      945,
+      459,
+      9,
+      493,
+      1,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.8139330930731942,
+      "offset": [
+        102.33785308262004,
+        -3379.716505594197
+      ]
+    },
+    "frontendVersion": "1.45.21",
+    "workflowRendererVersion": "LG",
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

@@ -28,16 +28,17 @@ import { RgthreeLoraInfoDialog } from "/extensions/rgthree-comfy/dialog_info.js"
 import { rgthree } from "/extensions/rgthree-comfy/rgthree.js";
 import { rgthreeApi } from "/rgthree/common/rgthree_api.js";
 import { LORA_INFO_SERVICE } from "/rgthree/common/model_info_service.js";
-import {
-    moveArrayItem,
-    removeArrayItem,
-} from "/rgthree/common/shared_utils.js";
 
 const TARGET = "SOLoaderCoreEngine";
 const NONE = "None";
 const ALL_FOLDERS = "[All LoRA folders]";
 const ROOT_FOLDER = "[LoRA root only]";
+const ALL_EPOCHS = "[All epochs]";
+const NO_EPOCH_TAG = "[No epoch tag]";
+const CONTROL_MODES = ["fixed", "increment", "decrement", "randomize"];
+const DEFAULT_CLEAN_NAME_MODE = "auto:1";
 const SECONDARY_PREFIX = "secondary_lora_";
+const MAX_SECONDARY_LORAS = 10;
 
 function widget(node, name) {
     return node.widgets?.find((item) => item.name === name);
@@ -83,6 +84,30 @@ function writeValues(comboWidget, values) {
     comboWidget.options.values = [...values];
 }
 
+async function copyText(value) {
+    const text = String(value ?? "");
+    if (!text) return false;
+
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (error) {}
+
+    try {
+        const input = document.createElement("textarea");
+        input.value = text;
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.append(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
 function folderMatches(loraName, folderName, includeSubfolders) {
     const parent = parentFolder(loraName);
 
@@ -96,7 +121,194 @@ function folderMatches(loraName, folderName, includeSubfolders) {
         : parent === selected;
 }
 
-function allowedMainLoras(node) {
+function epochNumber(loraName) {
+    const normalized = normalizePath(loraName);
+    const filename = normalized.slice(normalized.lastIndexOf("/") + 1);
+    const stem = filename.replace(/\.[^.]+$/, "");
+    const match = stem.match(/epoch[\s_-]*0*(\d+)/i);
+    return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function epochLabel(number) {
+    return `Epoch ${Number(number)}`;
+}
+
+function parseCleanModeIndex(value) {
+    const text = String(value ?? "").trim();
+    const auto = text.match(/^auto:(\d+)$/i);
+    if (auto) return Math.max(1, Number.parseInt(auto[1], 10));
+    const direct = text.match(/^(\d+)\b/);
+    if (direct) return Math.max(1, Number.parseInt(direct[1], 10));
+    const keep = text.match(/keep[_:\s-]*(\d+)/i);
+    if (keep) return Math.max(1, Number.parseInt(keep[1], 10));
+    return 1;
+}
+
+function stemGroups(stem) {
+    let value = String(stem ?? "")
+        .trim()
+        .replace(/^[ _\-.]+|[ _\-.]+$/g, "");
+    if (!value) return [];
+
+    const epochMatch = value.match(/(?:[_\-\s]|^)epoch[\s_-]*0*\d+$/i);
+    let epochGroup = null;
+
+    if (epochMatch) {
+        epochGroup = epochMatch[0].replace(/^[ _\-.]+/g, "");
+        value = value.slice(0, epochMatch.index).replace(/[ _\-.]+$/g, "");
+    }
+
+    const groups = value.split("_").filter(Boolean);
+    if (epochGroup) groups.push(epochGroup);
+    return groups;
+}
+
+function canonicalSuffixGroup(group) {
+    const value = String(group ?? "").trim().toLowerCase();
+    return /^epoch[\s_-]*0*\d+$/i.test(value) ? "<epoch>" : value;
+}
+
+function recognizedSuffixCount(stem) {
+    const groups = stemGroups(stem);
+    let count = 0;
+
+    for (let index = groups.length - 1; index >= 0; index--) {
+        const value = canonicalSuffixGroup(groups[index]);
+        if (
+            value === "<epoch>" ||
+            /^(?:krea\d*|sickollie|sdxl|flux\d*|pony|illustrious|v\d+(?:\.\d+)*|ver\d+|version\d+|step\d+)$/i.test(value)
+        ) {
+            count++;
+            continue;
+        }
+        break;
+    }
+
+    return Math.min(count, Math.max(0, groups.length - 1));
+}
+
+function commonSuffixCount(loraNames) {
+    const grouped = (loraNames || [])
+        .filter((name) => name && name !== NONE)
+        .map((name) => {
+            const normalized = normalizePath(name);
+            const filename = normalized.slice(normalized.lastIndexOf("/") + 1);
+            return stemGroups(filename.replace(/\.[^.]+$/, ""));
+        })
+        .filter((groups) => groups.length);
+
+    if (!grouped.length) return 0;
+    if (grouped.length === 1) {
+        return recognizedSuffixCount(grouped[0].join("_"));
+    }
+
+    const maxDepth = Math.min(
+        ...grouped.map((groups) => Math.max(0, groups.length - 1)),
+    );
+    let common = 0;
+
+    for (let depth = 1; depth <= maxDepth; depth++) {
+        const values = new Set(
+            grouped.map((groups) => canonicalSuffixGroup(groups[groups.length - depth])),
+        );
+        if (values.size !== 1) break;
+        common++;
+    }
+
+    return common;
+}
+
+function trimSuffixGroups(stem, count) {
+    const groups = stemGroups(stem);
+    const remove = Math.max(
+        0,
+        Math.min(Number(count) || 0, Math.max(0, groups.length - 1)),
+    );
+    const kept = remove ? groups.slice(0, -remove) : groups;
+    return kept.join("_") || String(stem ?? "");
+}
+
+function currentMainStem(node) {
+    const mainValue = String(widget(node, "main_lora")?.value ?? NONE);
+    if (!mainValue || mainValue === NONE) return "clean_name";
+    const normalized = normalizePath(mainValue);
+    const filename = normalized.slice(normalized.lastIndexOf("/") + 1);
+    return filename.replace(/\.[^.]+$/, "") || "clean_name";
+}
+
+function cleanNameModeChoices(node) {
+    const stem = currentMainStem(node);
+    const shared = Math.max(
+        commonSuffixCount(allowedMainLoras(node)),
+        recognizedSuffixCount(stem),
+    );
+    const choices = [];
+
+    for (let index = 1; index <= shared + 1; index++) {
+        const remove = Math.max(0, shared - (index - 1));
+        choices.push(`${index} · ${trimSuffixGroups(stem, remove)}`);
+    }
+
+    return choices.length ? choices : [`1 · ${stem}`];
+}
+
+function ensureCleanNameCombo(node) {
+    const existing = widget(node, "cleanup_rules");
+    if (!existing || existing.__soCleanNameCombo) return existing;
+
+    const index = node.widgets?.indexOf(existing) ?? -1;
+    const savedValue = existing.value;
+
+    // The Python input remains a STRING in the same serialized slot, but the
+    // frontend widget itself must be a genuine LiteGraph combo. Merely changing
+    // an existing STRING widget's `type` leaves its text-editor mouse behavior
+    // attached, which is what caused the generic Value popup.
+    try {
+        existing.inputEl?.remove?.();
+    } catch (error) {}
+    try {
+        existing.onRemove?.();
+    } catch (error) {}
+
+    const combo = node.addWidget(
+        "combo",
+        "cleanup_rules",
+        savedValue,
+        () => {
+            node.setDirtyCanvas?.(true, true);
+        },
+        { values: [] },
+    );
+
+    combo.label = "clean_name";
+    combo.__soCleanNameCombo = true;
+    combo.options = combo.options || {};
+    combo.options.serialize = true;
+
+    const appendedIndex = node.widgets?.indexOf(combo) ?? -1;
+    if (index >= 0 && appendedIndex >= 0 && appendedIndex !== index) {
+        node.widgets.splice(appendedIndex, 1);
+        node.widgets.splice(index, 1, combo);
+    }
+
+    return combo;
+}
+
+function refreshCleanNameChoices(node) {
+    const cleanWidget = ensureCleanNameCombo(node);
+    if (!cleanWidget) return;
+
+    const choices = cleanNameModeChoices(node);
+    const currentIndex = parseCleanModeIndex(cleanWidget.value);
+    writeValues(cleanWidget, choices);
+    cleanWidget.value =
+        choices[Math.min(Math.max(currentIndex, 1), choices.length) - 1] ??
+        choices[0];
+
+    node.setDirtyCanvas?.(true, true);
+}
+
+function folderScopedLoras(node) {
     const folderName =
         widget(node, "folder_name")?.value ?? ALL_FOLDERS;
     const includeSubfolders = Boolean(
@@ -107,6 +319,60 @@ function allowedMainLoras(node) {
         (name) =>
             name !== NONE &&
             folderMatches(name, folderName, includeSubfolders),
+    );
+}
+
+function epochMatches(loraName, filterValue) {
+    const selected = String(filterValue ?? ALL_EPOCHS);
+    if (selected === ALL_EPOCHS) return true;
+
+    const number = epochNumber(loraName);
+    if (selected === NO_EPOCH_TAG) return number == null;
+
+    const match = selected.match(/^Epoch\s+(\d+)$/i);
+    if (!match) return true;
+    return number === Number.parseInt(match[1], 10);
+}
+
+function detectedEpochChoices(node) {
+    const names = folderScopedLoras(node);
+    const numbers = [...new Set(
+        names
+            .map(epochNumber)
+            .filter((number) => Number.isInteger(number)),
+    )].sort((a, b) => a - b);
+
+    const choices = [ALL_EPOCHS, ...numbers.map(epochLabel)];
+    if (numbers.length && names.some((name) => epochNumber(name) == null)) {
+        choices.push(NO_EPOCH_TAG);
+    }
+    return choices;
+}
+
+function refreshEpochChoices(node) {
+    const epochWidget = widget(node, "epoch_filter");
+    if (!epochWidget) return;
+
+    const choices = detectedEpochChoices(node);
+    writeValues(epochWidget, choices);
+
+    const current = String(epochWidget.value ?? ALL_EPOCHS);
+    if (!choices.includes(current)) {
+        epochWidget.value = ALL_EPOCHS;
+        try {
+            epochWidget.callback?.(epochWidget.value);
+        } catch (error) {}
+    }
+
+    node.setDirtyCanvas?.(true, true);
+}
+
+function allowedMainLoras(node) {
+    const epochFilter =
+        widget(node, "epoch_filter")?.value ?? ALL_EPOCHS;
+
+    return folderScopedLoras(node).filter(
+        (name) => epochMatches(name, epochFilter),
     );
 }
 
@@ -196,6 +462,111 @@ function advanceMainAfterQueued(node) {
     node.setDirtyCanvas?.(true, true);
 }
 
+
+function displayTriggerValue(value) {
+    const text = String(value ?? "").trim();
+    return text.length ? text : "none";
+}
+
+async function fetchMainTriggerFromServer(mainValue) {
+    const value = String(mainValue ?? "").trim();
+    if (!value || value === NONE) {
+        return "";
+    }
+
+    const url = `/sickollie/loader-core/main-trigger?lora=${encodeURIComponent(value)}`;
+    const response = await fetch(url, { method: "GET" });
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    return String(payload?.trigger ?? "").trim();
+}
+
+function updateTriggerButton(node) {
+    if (!node.__soTriggerButton) return;
+    const text = String(node.__soMainTrigger ?? "").trim();
+    node.__soTriggerButton.name = `📋 Copy trigger: ${displayTriggerValue(text)}`;
+    node.setDirtyCanvas?.(true, true);
+}
+
+function flashTriggerButton(node, button, normalName) {
+    if (!button) return;
+    button.name = `✓ Copied ${normalName.replace(/^📋 Copy\s*/, "")}`;
+    node.setDirtyCanvas?.(true, true);
+
+    clearTimeout(button.__soResetTimer);
+    button.__soResetTimer = setTimeout(() => {
+        button.name = normalName;
+        node.setDirtyCanvas?.(true, true);
+    }, 850);
+}
+
+function ensureTriggerButton(node) {
+    if (node.__soTriggerButton) return node.__soTriggerButton;
+
+    node.__soMainTrigger = String(node.__soMainTrigger ?? "");
+
+    const button = node.addWidget(
+        "button",
+        "📋 Copy trigger: none",
+        null,
+        async () => {
+            const value = String(node.__soMainTrigger ?? "").trim();
+            if (!value) return;
+            const normalName = `📋 Copy trigger: ${displayTriggerValue(value)}`;
+            if (await copyText(value)) {
+                flashTriggerButton(node, button, normalName);
+            }
+        },
+        { serialize: false },
+    );
+
+    button.serialize = false;
+    node.__soTriggerButton = button;
+
+    const cleanWidget = widget(node, "cleanup_rules");
+    const secondaryDivider = node.__soSecondaryDivider;
+    if (Array.isArray(node.widgets)) {
+        const buttonIndex = node.widgets.indexOf(button);
+        if (buttonIndex >= 0) node.widgets.splice(buttonIndex, 1);
+        let insertAt = node.widgets.length;
+        if (secondaryDivider && node.widgets.includes(secondaryDivider)) {
+            insertAt = node.widgets.indexOf(secondaryDivider);
+        } else if (cleanWidget && node.widgets.includes(cleanWidget)) {
+            insertAt = node.widgets.indexOf(cleanWidget) + 1;
+        }
+        node.widgets.splice(insertAt, 0, button);
+    }
+
+    updateTriggerButton(node);
+    return button;
+}
+
+async function refreshMainTrigger(node, force = false) {
+    const mainValue = String(widget(node, "main_lora")?.value ?? NONE);
+    node.__soMainTrigger = "";
+
+    if (!mainValue || mainValue === NONE) {
+        updateTriggerButton(node);
+        return "";
+    }
+
+    try {
+        node.__soMainTrigger = await fetchMainTriggerFromServer(mainValue);
+    } catch (error) {
+        console.warn(
+            "[Sick Ollie Loader Core] Could not read main LoRA modelspec.title",
+            error,
+        );
+        node.__soMainTrigger = "";
+    }
+
+    updateTriggerButton(node);
+    return node.__soMainTrigger;
+}
+
 class SecondaryHeaderWidget extends RgthreeBaseWidget {
     constructor() {
         super("secondary_lora_header");
@@ -258,9 +629,11 @@ class SecondaryHeaderWidget extends RgthreeBaseWidget {
 }
 
 class SecondaryLoraWidget extends RgthreeBaseWidget {
-    constructor(name) {
+    constructor(name, slotIndex = 1) {
         super(name);
         this.type = "custom";
+        this.slotIndex = Number(slotIndex) || 1;
+        this._soVisible = this.slotIndex === 1;
         this._value = {
             on: true,
             lora: null,
@@ -317,6 +690,10 @@ class SecondaryLoraWidget extends RgthreeBaseWidget {
             };
         }
 
+        const hasLora = Boolean(
+            this._value.lora && this._value.lora !== NONE,
+        );
+        this._soVisible = this.slotIndex === 1 || hasLora;
         this.getLoraInfo();
     }
 
@@ -326,8 +703,28 @@ class SecondaryLoraWidget extends RgthreeBaseWidget {
 
     setLora(lora) {
         this._value.lora = lora;
+        const hasLora = Boolean(lora && lora !== NONE);
+        this._soVisible = this.slotIndex === 1 || hasLora;
         this.loraInfo = null;
         this.getLoraInfo(true);
+    }
+
+    clear() {
+        this.value = {
+            on: false,
+            lora: null,
+            strength: 1,
+        };
+        this._soVisible = this.slotIndex === 1;
+    }
+
+    isPopulated() {
+        return Boolean(this.value.lora && this.value.lora !== NONE);
+    }
+
+    computeSize(width) {
+        if (!this._soVisible) return [width || 0, -4];
+        return [width || 0, LiteGraph.NODE_WIDGET_HEIGHT || 20];
     }
 
     serializeValue() {
@@ -335,6 +732,7 @@ class SecondaryLoraWidget extends RgthreeBaseWidget {
     }
 
     draw(ctx, node, width, posY, height) {
+        if (!this._soVisible) return;
         const margin = 10;
         const innerMargin = margin * 0.33;
         const lowQuality = isLowQuality();
@@ -547,9 +945,8 @@ class SecondaryLoraWidget extends RgthreeBaseWidget {
     }
 }
 
-function installDynamicSecondaryMethods(node) {
+function installFixedSecondaryMethods(node) {
     node.serialize_widgets = true;
-    node.__soSecondaryCounter = node.__soSecondaryCounter || 0;
     node.__soSecondaryWidgets = node.__soSecondaryWidgets || [];
 
     node.__soShowLoraChooser = async (event, onChoose) => {
@@ -569,54 +966,17 @@ function installDynamicSecondaryMethods(node) {
         );
     };
 
-    node.__soAddSecondary = (lora, value) => {
-        node.__soSecondaryCounter += 1;
-
-        const secondary = node.addCustomWidget(
-            new SecondaryLoraWidget(
-                SECONDARY_PREFIX +
-                    node.__soSecondaryCounter,
-            ),
+    node.__soVisibleSecondaries = () =>
+        (node.__soSecondaryWidgets || []).filter(
+            (item) => item._soVisible && item.isPopulated(),
         );
-
-        if (value) {
-            secondary.value = { ...value };
-        } else if (lora) {
-            secondary.setLora(lora);
-        }
-
-        node.__soSecondaryWidgets.push(secondary);
-
-        if (node.__soSecondaryButtonSpacer) {
-            moveArrayItem(
-                node.widgets,
-                secondary,
-                node.widgets.indexOf(
-                    node.__soSecondaryButtonSpacer,
-                ),
-            );
-        }
-
-        node.size[1] = Math.max(
-            node.size[1],
-            node.computeSize()[1],
-        );
-        node.setDirtyCanvas?.(true, true);
-
-        return secondary;
-    };
 
     node.__soAllSecondaryState = () => {
-        if (!node.__soSecondaryWidgets.length) {
-            return false;
-        }
+        const activeRows = node.__soVisibleSecondaries();
+        if (!activeRows.length) return false;
 
-        const allOn = node.__soSecondaryWidgets.every(
-            (item) => item.value.on,
-        );
-        const allOff = node.__soSecondaryWidgets.every(
-            (item) => !item.value.on,
-        );
+        const allOn = activeRows.every((item) => item.value.on);
+        const allOff = activeRows.every((item) => !item.value.on);
 
         if (allOn) return true;
         if (allOff) return false;
@@ -624,42 +984,63 @@ function installDynamicSecondaryMethods(node) {
     };
 
     node.__soToggleAllSecondaries = () => {
-        const turnOn =
-            node.__soAllSecondaryState() !== true;
+        const rows = node.__soVisibleSecondaries();
+        const turnOn = node.__soAllSecondaryState() !== true;
 
-        for (const secondary of node.__soSecondaryWidgets) {
+        for (const secondary of rows) {
             secondary.value.on = turnOn;
         }
 
         node.setDirtyCanvas?.(true, true);
     };
+
+    node.__soRevealNextSecondary = (lora) => {
+        const target = (node.__soSecondaryWidgets || []).find(
+            (item) => !item.isPopulated(),
+        );
+
+        if (!target) {
+            console.warn(
+                `[Sick Ollie Loader Core] Maximum of ${MAX_SECONDARY_LORAS} secondary LoRAs reached.`,
+            );
+            return null;
+        }
+
+        target.setLora(lora);
+        target.value.on = true;
+        target._soVisible = true;
+        node.size[1] = Math.max(node.size[1], node.computeSize()[1]);
+        node.setDirtyCanvas?.(true, true);
+        return target;
+    };
+
+    node.__soClearSecondary = (secondary) => {
+        secondary?.clear?.();
+        node.setDirtyCanvas?.(true, true);
+    };
 }
 
-function removeDynamicSecondaryUI(node) {
-    const dynamic = new Set([
-        ...(node.__soSecondaryWidgets || []),
-        node.__soSecondaryHeader,
-        node.__soSecondaryDivider,
-        node.__soSecondaryButtonSpacer,
-        node.__soAddButton,
-    ]);
+function refreshFixedSecondaryVisibility(node) {
+    for (const secondary of node.__soSecondaryWidgets || []) {
+        secondary._soVisible =
+            secondary.slotIndex === 1 || secondary.isPopulated();
+    }
+    node.setDirtyCanvas?.(true, true);
+}
 
-    for (let index = (node.widgets?.length || 0) - 1; index >= 0; index--) {
-        if (dynamic.has(node.widgets[index])) {
-            node.removeWidget(index);
+function addFixedSecondaryUI(node, restoredValues = []) {
+    if (node.__soFixedSecondaryReady) {
+        if (restoredValues.length) {
+            for (let i = 0; i < Math.min(restoredValues.length, MAX_SECONDARY_LORAS); i++) {
+                node.__soSecondaryWidgets[i].value = { ...restoredValues[i] };
+            }
         }
+        refreshFixedSecondaryVisibility(node);
+        return;
     }
 
-    node.__soSecondaryWidgets = [];
-    node.__soSecondaryHeader = null;
-    node.__soSecondaryDivider = null;
-    node.__soSecondaryButtonSpacer = null;
-    node.__soAddButton = null;
-}
-
-function addDynamicSecondaryUI(node, values = []) {
-    removeDynamicSecondaryUI(node);
-    installDynamicSecondaryMethods(node);
+    node.__soFixedSecondaryReady = true;
+    installFixedSecondaryMethods(node);
 
     node.__soSecondaryDivider = node.addCustomWidget(
         new RgthreeDividerWidget({
@@ -673,8 +1054,19 @@ function addDynamicSecondaryUI(node, values = []) {
         new SecondaryHeaderWidget(),
     );
 
-    for (const value of values) {
-        node.__soAddSecondary(null, value);
+    for (let slot = 1; slot <= MAX_SECONDARY_LORAS; slot++) {
+        const secondary = node.addCustomWidget(
+            new SecondaryLoraWidget(
+                `${SECONDARY_PREFIX}${slot}`,
+                slot,
+            ),
+        );
+
+        if (restoredValues[slot - 1]) {
+            secondary.value = { ...restoredValues[slot - 1] };
+        }
+
+        node.__soSecondaryWidgets.push(secondary);
     }
 
     node.__soSecondaryButtonSpacer = node.addCustomWidget(
@@ -689,11 +1081,22 @@ function addDynamicSecondaryUI(node, values = []) {
         new RgthreeBetterButtonWidget(
             "➕ Add Secondary LoRA",
             (event) => {
+                const hasFreeSlot = node.__soSecondaryWidgets.some(
+                    (item) => !item.isPopulated(),
+                );
+
+                if (!hasFreeSlot) {
+                    console.warn(
+                        `[Sick Ollie Loader Core] Maximum of ${MAX_SECONDARY_LORAS} secondary LoRAs reached.`,
+                    );
+                    return true;
+                }
+
                 node.__soShowLoraChooser(
                     event,
                     (value) => {
                         if (value !== NONE) {
-                            node.__soAddSecondary(value);
+                            node.__soRevealNextSecondary(value);
                         }
                     },
                 );
@@ -702,12 +1105,99 @@ function addDynamicSecondaryUI(node, values = []) {
         ),
     );
 
+    refreshFixedSecondaryVisibility(node);
     node.size[0] = Math.max(node.size[0], 560);
-    node.size[1] = Math.max(
-        node.size[1],
-        node.computeSize()[1],
-    );
+    node.size[1] = Math.max(node.size[1], node.computeSize()[1]);
     node.setDirtyCanvas?.(true, true);
+}
+
+function looksLikeLegacyPreEpochValues(values) {
+    return (
+        Array.isArray(values) &&
+        typeof values[3] === "boolean" &&
+        typeof values[4] === "string" &&
+        typeof values[5] === "number" &&
+        typeof values[6] === "boolean" &&
+        typeof values[7] === "boolean" &&
+        CONTROL_MODES.includes(String(values[8])) &&
+        typeof values[9] === "boolean" &&
+        typeof values[10] === "string" &&
+        typeof values[11] === "boolean" &&
+        typeof values[12] === "string"
+    );
+}
+
+function looksLikeSavedShiftedEpochValues(values) {
+    // A workflow saved after the bad one-slot load has already lost several
+    // original values through widget coercion. Detect that shape so we can at
+    // least restore a safe, valid Loader Core instead of shifting it again.
+    return (
+        Array.isArray(values) &&
+        typeof values[3] === "boolean" &&
+        typeof values[4] === "boolean" &&
+        typeof values[5] === "number" &&
+        typeof values[8] === "boolean" &&
+        !CONTROL_MODES.includes(String(values[9]))
+    );
+}
+
+function migrateEpochFilterWorkflow(info) {
+    const values = info?.widgets_values;
+    if (!Array.isArray(values)) return info;
+
+    // Loader Core 1.0.0 had main_enabled at index 3. This migration must run
+    // before LiteGraph applies widget values, otherwise every later widget is
+    // configured one slot late.
+    if (looksLikeLegacyPreEpochValues(values)) {
+        return {
+            ...info,
+            widgets_values: [
+                ...values.slice(0, 3),
+                ALL_EPOCHS,
+                ...values.slice(3),
+            ],
+        };
+    }
+
+    if (looksLikeSavedShiftedEpochValues(values)) {
+        const dynamicSecondaries = values
+            .slice(13)
+            .filter(
+                (value) =>
+                    value &&
+                    typeof value === "object" &&
+                    typeof value.lora !== "undefined",
+            );
+
+        console.warn(
+            "[Sick Ollie Loader Core] Repairing a workflow saved after the " +
+                "epoch widget shift. Main LoRA and edited cleanup text could " +
+                "not be recovered, so safe defaults were restored.",
+        );
+
+        return {
+            ...info,
+            widgets_values: [
+                values[0],
+                values[1],
+                values[2],
+                ALL_EPOCHS,
+                true,
+                NONE,
+                1,
+                Boolean(values[7]),
+                true,
+                "fixed",
+                true,
+                "no_lora",
+                true,
+                DEFAULT_CLEAN_NAME_MODE,
+                ...dynamicSecondaries,
+            ],
+        };
+    }
+
+    return info;
 }
 
 function dynamicValuesFromWorkflow(info) {
@@ -783,9 +1273,8 @@ function installContextMenuHooks(nodeType) {
         }
 
         if (
-            lastWidget?.name?.startsWith(
-                SECONDARY_PREFIX,
-            )
+            lastWidget?._soVisible &&
+            lastWidget?.name?.startsWith(SECONDARY_PREFIX)
         ) {
             return {
                 widget: lastWidget,
@@ -810,23 +1299,10 @@ function installContextMenuHooks(nodeType) {
             )
         ) {
             const secondary = slot.widget;
-            const index = this.widgets.indexOf(secondary);
-
-            const previous = this.widgets[index - 1];
-            const next = this.widgets[index + 1];
-
-            const canMoveUp =
-                previous?.name?.startsWith(
-                    SECONDARY_PREFIX,
-                );
-            const canMoveDown =
-                next?.name?.startsWith(
-                    SECONDARY_PREFIX,
-                );
-
             const items = [
                 {
                     content: "ℹ️ Show Info",
+                    disabled: !secondary.isPopulated(),
                     callback: () =>
                         secondary.showLoraInfoDialog(),
                 },
@@ -835,75 +1311,24 @@ function installContextMenuHooks(nodeType) {
                     content: secondary.value.on
                         ? "⚫ Toggle Off"
                         : "🟢 Toggle On",
+                    disabled: !secondary.isPopulated(),
                     callback: () => {
                         secondary.value.on =
                             !secondary.value.on;
+                        this.setDirtyCanvas?.(true, true);
                     },
                 },
                 {
-                    content: "⬆️ Move Up",
-                    disabled: !canMoveUp,
+                    content: "🗑️ Clear Row",
+                    disabled: !secondary.isPopulated(),
                     callback: () => {
-                        moveArrayItem(
-                            this.widgets,
-                            secondary,
-                            index - 1,
-                        );
-                        moveArrayItem(
-                            this.__soSecondaryWidgets,
-                            secondary,
-                            Math.max(
-                                0,
-                                this.__soSecondaryWidgets.indexOf(
-                                    secondary,
-                                ) - 1,
-                            ),
-                        );
-                    },
-                },
-                {
-                    content: "⬇️ Move Down",
-                    disabled: !canMoveDown,
-                    callback: () => {
-                        moveArrayItem(
-                            this.widgets,
-                            secondary,
-                            index + 1,
-                        );
-                        moveArrayItem(
-                            this.__soSecondaryWidgets,
-                            secondary,
-                            Math.min(
-                                this.__soSecondaryWidgets.length -
-                                    1,
-                                this.__soSecondaryWidgets.indexOf(
-                                    secondary,
-                                ) + 1,
-                            ),
-                        );
-                    },
-                },
-                {
-                    content: "🗑️ Remove",
-                    callback: () => {
-                        removeArrayItem(
-                            this.widgets,
-                            secondary,
-                        );
-                        removeArrayItem(
-                            this.__soSecondaryWidgets,
-                            secondary,
-                        );
-                        this.setDirtyCanvas?.(
-                            true,
-                            true,
-                        );
+                        this.__soClearSecondary?.(secondary);
                     },
                 },
             ];
 
             new LiteGraph.ContextMenu(items, {
-                title: "SECONDARY LORA",
+                title: `SECONDARY LORA ${secondary.slotIndex}`,
                 event: rgthree.lastCanvasMouseEvent,
             });
 
@@ -925,6 +1350,17 @@ app.registerExtension({
 
         installContextMenuHooks(nodeType);
 
+        // LiteGraph applies widgets_values inside configure() and only calls
+        // onConfigure() afterward. Intercept configure itself so migrations
+        // happen before any widget receives a shifted value.
+        const originalNodeConfigure = nodeType.prototype.configure;
+        nodeType.prototype.configure = function (info) {
+            return originalNodeConfigure.call(
+                this,
+                migrateEpochFilterWorkflow(info),
+            );
+        };
+
         const originalCreated =
             nodeType.prototype.onNodeCreated;
 
@@ -934,6 +1370,8 @@ app.registerExtension({
                     this,
                     arguments,
                 );
+
+            ensureCleanNameCombo(this);
 
             const mainWidget = widget(
                 this,
@@ -954,6 +1392,23 @@ app.registerExtension({
                         );
                     } finally {
                         advanceMainAfterQueued(this);
+                        refreshCleanNameChoices(this);
+                        refreshMainTrigger(this, false);
+                    }
+                };
+
+                const originalMainCallback =
+                    mainWidget.callback;
+
+                mainWidget.callback = (value) => {
+                    try {
+                        originalMainCallback?.call(
+                            mainWidget,
+                            value,
+                        );
+                    } finally {
+                        refreshCleanNameChoices(this);
+                        refreshMainTrigger(this, false);
                     }
                 };
             }
@@ -979,23 +1434,48 @@ app.registerExtension({
                             value,
                         );
                     } finally {
+                        refreshEpochChoices(this);
                         refreshMainChoices(
                             this,
                             true,
                         );
+                        refreshCleanNameChoices(this);
+                    }
+                };
+            }
+
+            const epochWidget = widget(
+                this,
+                "epoch_filter",
+            );
+
+            if (epochWidget) {
+                const originalEpochCallback =
+                    epochWidget.callback;
+
+                epochWidget.callback = (value) => {
+                    try {
+                        originalEpochCallback?.call(
+                            epochWidget,
+                            value,
+                        );
+                    } finally {
+                        refreshMainChoices(
+                            this,
+                            true,
+                        );
+                        refreshCleanNameChoices(this);
                     }
                 };
             }
 
             rgthreeApi.getLoras();
-            addDynamicSecondaryUI(this, [
-                {
-                    on: false,
-                    lora: null,
-                    strength: 1,
-                },
-            ]);
+            addFixedSecondaryUI(this);
+            ensureTriggerButton(this);
+            refreshEpochChoices(this);
             refreshMainChoices(this, false);
+            refreshCleanNameChoices(this);
+            refreshMainTrigger(this, false);
 
             return result;
         };
@@ -1004,29 +1484,28 @@ app.registerExtension({
             nodeType.prototype.onConfigure;
 
         nodeType.prototype.onConfigure = function (info) {
+            const configuredInfo =
+                migrateEpochFilterWorkflow(info);
+
             const result =
-                originalConfigure?.apply(
+                originalConfigure?.call(
                     this,
-                    arguments,
+                    configuredInfo,
                 );
 
             const values =
-                dynamicValuesFromWorkflow(info);
+                dynamicValuesFromWorkflow(configuredInfo);
 
             setTimeout(() => {
-                addDynamicSecondaryUI(
+                addFixedSecondaryUI(
                     this,
-                    values.length
-                        ? values
-                        : [
-                              {
-                                  on: false,
-                                  lora: null,
-                                  strength: 1,
-                              },
-                          ],
+                    values,
                 );
+                ensureTriggerButton(this);
+                refreshEpochChoices(this);
                 refreshMainChoices(this, false);
+                refreshCleanNameChoices(this);
+                refreshMainTrigger(this, false);
             }, 0);
 
             return result;

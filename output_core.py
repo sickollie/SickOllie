@@ -622,9 +622,9 @@ class SOOutputBuilderSave:
                 'extension': (IMAGE_FORMATS, {'default': 'png'}),
                 'quality': ('INT', {'default': 95, 'min': 1, 'max': 100, 'step': 1, 'tooltip': 'Used for jpg/webp quality. PNG ignores this.'}),
                 'counter_digits': ('INT', {'default': 5, 'min': 1, 'max': 10, 'step': 1}),
-                'save_prompt_json': ('BOOLEAN', {'default': True, 'tooltip': 'Embed Comfy prompt JSON metadata.'}),
-                'save_workflow_json': ('BOOLEAN', {'default': True, 'tooltip': 'Embed workflow JSON metadata for reload and Civitai parsing.'}),
-                'save_civitai_parameters': ('BOOLEAN', {'default': True, 'tooltip': 'Embed a Civitai-readable parameters text block.'}),
+                'save_prompt_json': ('BOOLEAN', {'default': True, 'tooltip': 'Embed Comfy prompt metadata inside the saved image.'}),
+                'save_workflow_json': ('BOOLEAN', {'default': True, 'tooltip': 'Embed workflow metadata inside the saved image for reload.'}),
+                'save_civitai_parameters': ('BOOLEAN', {'default': True, 'tooltip': 'Embed Civitai-readable generation metadata inside the saved image.'}),
                 'clean_name': ('STRING', {'default': '', 'multiline': False}),
                 'raw_stem': ('STRING', {'default': '', 'multiline': False}),
                 'model_name': ('STRING', {'default': '', 'multiline': False, 'tooltip': 'Connect a model name string here if desired.'}),
@@ -671,6 +671,14 @@ class SOOutputBuilderSave:
         context = _context_values(clean_name=clean_name, raw_stem=raw_stem, model_name=resolved_model_name, seed=seed,
                                   prompt_index=prompt_index, outfit_index=outfit_index, scene_index=scene_index,
                                   prompt_file=prompt_file, outfit_file=outfit_file, scene_file=scene_file)
+        resolved_values = {
+            'clean_name': context.get('clean_name', ''),
+            'raw_stem': context.get('raw_stem', ''),
+            'model_name': context.get('model_name', ''),
+            'prompt_index': context.get('prompt_index', ''),
+            'outfit_index': context.get('outfit_index', ''),
+            'scene_index': context.get('scene_index', ''),
+        }
         subfolder_name = _build_segment(subfolder_literal, subfolder_delimiter,
                                         [subfolder_var_1, subfolder_var_2, subfolder_var_3, subfolder_var_4], context)
         filename_prefix = _build_segment(filename_literal, filename_delimiter,
@@ -737,9 +745,17 @@ class SOOutputBuilderSave:
                             props['so_detected_model_hash'] = base_model_hash
                         if parameters_text:
                             props['so_last_parameters_text'] = parameters_text
+                        props['so_output_resolved_values'] = dict(resolved_values)
                         break
 
-        return {'ui': {'images': results, 'saved_path': [last_path]}, 'result': (images, last_path, subfolder_name, filename_prefix)}
+        return {
+            'ui': {
+                'images': results,
+                'saved_path': [last_path],
+                'resolved_values': [resolved_values],
+            },
+            'result': (images, last_path, subfolder_name, filename_prefix),
+        }
 
 
 NODE_CLASS_MAPPINGS = {'SOOutputBuilderSave': SOOutputBuilderSave}
