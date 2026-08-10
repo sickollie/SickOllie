@@ -316,6 +316,20 @@ class SOGenerationPipeline(_ClipVaeCacheMixin):
                     },
                 ),
             },
+            "optional": {
+                "positive_conditioning": (
+                    "CONDITIONING",
+                    {
+                        "tooltip": "Optional external positive conditioning. When connected, it overrides Generation Core's internal positive-text encoding. Useful for image-edit encoders that attach reference-image conditioning.",
+                    },
+                ),
+                "negative_conditioning": (
+                    "CONDITIONING",
+                    {
+                        "tooltip": "Optional external negative conditioning. When unconnected, Generation Core keeps its existing empty-negative behavior.",
+                    },
+                ),
+            },
             "hidden": {
                 "prompt": "PROMPT",
                 "extra_pnginfo": "EXTRA_PNGINFO",
@@ -326,8 +340,8 @@ class SOGenerationPipeline(_ClipVaeCacheMixin):
     RETURN_TYPES = ('LATENT', 'VAE', 'INT', 'INT', 'INT', 'STRING')
     RETURN_NAMES = ('samples', 'vae', 'seed_used', 'width', 'height', 'generation_info')
     FUNCTION = 'run_pipeline'
-    CATEGORY = 'Sick Ollie/Generation'
-    DESCRIPTION = 'Stable Krea2 generation core with internal CLIP and VAE loading, fixed empty negative conditioning, live preview, and a seed control that does not create a control-after-generate companion.'
+    CATEGORY = "Sick Ollie/Classic"
+    DESCRIPTION = 'Stable Krea2 generation core with internal CLIP and VAE loading, optional external CONDITIONING overrides for image-edit/reference encoders, fixed empty negative conditioning fallback, live preview, and persistent seed controls.'
     SEARCH_ALIASES = ['generation pipeline', 'krea2 pipeline', 'clip vae sampler', 'one box render']
 
     @classmethod
@@ -355,6 +369,8 @@ class SOGenerationPipeline(_ClipVaeCacheMixin):
         denoise,
         shift,
         seed_value,
+        positive_conditioning=None,
+        negative_conditioning=None,
         prompt=None,
         extra_pnginfo=None,
         unique_id=None,
@@ -373,11 +389,27 @@ class SOGenerationPipeline(_ClipVaeCacheMixin):
             8,
         )
 
-        clip = self._load_clip(clip_name, clip_type, clip_device)
-        positive = clip.encode_from_tokens_scheduled(clip.tokenize(str(positive_text)))
-        negative = clip.encode_from_tokens_scheduled(
-            clip.tokenize("")
-        )
+        # Keep the existing text-to-conditioning path as the default, but allow
+        # edit/reference encoders to supply CONDITIONING directly. This is
+        # intentionally an override rather than a replacement so all existing
+        # workflows behave exactly as before when the sockets are unconnected.
+        clip = None
+        if positive_conditioning is None or negative_conditioning is None:
+            clip = self._load_clip(clip_name, clip_type, clip_device)
+
+        if positive_conditioning is not None:
+            positive = positive_conditioning
+        else:
+            positive = clip.encode_from_tokens_scheduled(
+                clip.tokenize(str(positive_text))
+            )
+
+        if negative_conditioning is not None:
+            negative = negative_conditioning
+        else:
+            negative = clip.encode_from_tokens_scheduled(
+                clip.tokenize("")
+            )
 
         latent = _prepare_empty_latent(batch_size, width, height)
         latent_image = latent['samples']
@@ -435,6 +467,8 @@ class SOGenerationPipeline(_ClipVaeCacheMixin):
             'scheduler': str(scheduler or ''),
             'denoise': float(denoise),
             'shift': float(shift),
+            'positive_conditioning_source': 'external' if positive_conditioning is not None else 'internal_text',
+            'negative_conditioning_source': 'external' if negative_conditioning is not None else 'internal_empty',
         }
         generation_info = json.dumps(generation_info_obj, ensure_ascii=False)
 

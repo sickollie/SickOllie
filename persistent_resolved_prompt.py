@@ -47,7 +47,7 @@ class PersistentResolvedPrompt:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("text",)
     FUNCTION = "persist"
-    CATEGORY = "Sick Ollie/Prompt"
+    CATEGORY = "Sick Ollie/Classic"
     DESCRIPTION = (
         "Inline prompt viewer that persists the exact resolved STRING inside "
         "the saved PNG workflow and in a separate resolved_prompt metadata field."

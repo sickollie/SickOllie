@@ -598,6 +598,136 @@ def _parameters_from_civitai_fields(fields: dict[str, str]) -> str:
     return '\n'.join(lines)
 
 
+def _json_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _legacy_prompt_metadata(extra_pnginfo: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": 0,
+        "final_prompt": str(extra_pnginfo.get("resolved_prompt", "") or ""),
+        "source_prompt": str(extra_pnginfo.get("source_prompt", "") or ""),
+        "prompt": {
+            "file": str(extra_pnginfo.get("so_prompt_file", "") or ""),
+            "index": extra_pnginfo.get("so_prompt_index_resolved", None),
+            "count": extra_pnginfo.get("so_prompt_count", None),
+            "line": str(extra_pnginfo.get("prompt_log_line", "") or ""),
+        },
+        "outfit_a": {
+            "file": str(extra_pnginfo.get("so_outfit_a_file", "") or ""),
+            "index": extra_pnginfo.get("so_outfit_a_index_resolved", None),
+            "count": extra_pnginfo.get("so_outfit_a_count", None),
+            "line": str(extra_pnginfo.get("outfit_log_line", "") or ""),
+        },
+        "outfit_b": {
+            "file": str(extra_pnginfo.get("so_outfit_b_file", "") or ""),
+            "index": extra_pnginfo.get("so_outfit_b_index_resolved", None),
+            "count": extra_pnginfo.get("so_outfit_b_count", None),
+            "line": str(extra_pnginfo.get("outfit_log_line_B", "") or ""),
+        },
+        "outfit_c": {
+            "file": str(extra_pnginfo.get("so_outfit_c_file", "") or ""),
+            "index": extra_pnginfo.get("so_outfit_c_index_resolved", None),
+            "count": extra_pnginfo.get("so_outfit_c_count", None),
+            "line": str(extra_pnginfo.get("outfit_log_line_C", "") or ""),
+        },
+        "scene": {
+            "file": str(extra_pnginfo.get("so_scene_file", "") or ""),
+            "index": extra_pnginfo.get("so_scene_index_resolved", None),
+            "count": extra_pnginfo.get("so_scene_count", None),
+            "line": str(extra_pnginfo.get("scene_log_line", "") or ""),
+        },
+    }
+
+
+def _build_structured_image_metadata(
+    extra_pnginfo: Any,
+    generation_meta: dict[str, Any],
+    base_model_name: str,
+    base_model_hash: str,
+    width: int,
+    height: int,
+    seed: int,
+    applied_loras: str,
+    civitai_fields: dict[str, str],
+) -> dict[str, Any]:
+    extra = extra_pnginfo if isinstance(extra_pnginfo, dict) else {}
+    resolved = _json_dict(extra.get("so_prompt_core_resolved"))
+    if not resolved:
+        resolved = _legacy_prompt_metadata(extra)
+
+    generation = dict(generation_meta or {})
+    generation.setdefault("seed_used", extra.get("so_generation_seed_used", seed))
+    generation.setdefault("width", extra.get("so_generation_width", width))
+    generation.setdefault("height", extra.get("so_generation_height", height))
+    generation.setdefault("shift", extra.get("so_generation_shift", ""))
+    generation.setdefault("clip_name", extra.get("so_generation_clip_name", ""))
+    generation.setdefault("vae_name", extra.get("so_generation_vae_name", ""))
+
+    hashes = _json_dict(civitai_fields.get("Hashes", ""))
+    entries = _parse_applied_lora_entries(applied_loras)
+    main_file = str(extra.get("so_loader_core_main_file", "") or "")
+    main_active = bool(extra.get("so_loader_core_main_active", False))
+    secondary_saved = extra.get("so_loader_core_secondary_loras", [])
+    if not isinstance(secondary_saved, list):
+        secondary_saved = []
+
+    all_loras: list[dict[str, Any]] = []
+    for index, entry in enumerate(entries):
+        name = str(entry.get("name", "") or "")
+        raw_file = str(entry.get("filename", "") or entry.get("raw", "") or "")
+        role = "secondary"
+        if main_active and main_file:
+            normalized_raw = raw_file.replace("\\", "/")
+            normalized_main = main_file.replace("\\", "/")
+            if normalized_raw == normalized_main or Path(normalized_raw).stem == Path(normalized_main).stem:
+                role = "main"
+        elif main_active and index == 0:
+            role = "main"
+        all_loras.append({
+            "role": role,
+            "file": raw_file,
+            "name": name,
+            "strength": entry.get("weight", "1"),
+            "hash": str(hashes.get(f"lora:{name}", "") or ""),
+        })
+
+    main_lora = next((item for item in all_loras if item.get("role") == "main"), {})
+    secondary_loras = [item for item in all_loras if item.get("role") != "main"]
+    if not secondary_loras and secondary_saved:
+        secondary_loras = [dict(item) for item in secondary_saved if isinstance(item, dict)]
+
+    vae_name = str(generation.get("vae_name", "") or civitai_fields.get("VAE", "") or "")
+    models = {
+        "diffusion_model": str(extra.get("so_loader_core_diffusion_model", "") or base_model_name or ""),
+        "diffusion_model_hash": str(base_model_hash or civitai_fields.get("Model hash", "") or ""),
+        "weight_dtype": str(extra.get("so_loader_core_weight_dtype", "") or ""),
+        "text_encoder": str(generation.get("clip_name", "") or ""),
+        "vae": vae_name,
+        "vae_hash": str(civitai_fields.get("VAE hash", "") or hashes.get("vae", "") or ""),
+        "main_lora": main_lora,
+        "secondary_loras": secondary_loras,
+        "all_loras": all_loras,
+        "main_trigger": str(extra.get("so_loader_core_main_trigger", "") or ""),
+    }
+
+    return {
+        "schema_version": 1,
+        "format": "Sick Ollie Image Metadata",
+        "resolved": resolved,
+        "generation": generation,
+        "models": models,
+    }
+
+
 class SOOutputBuilderSave:
     @classmethod
     def INPUT_TYPES(cls):
@@ -652,7 +782,7 @@ class SOOutputBuilderSave:
     RETURN_NAMES = ('images', 'save_path', 'subfolder', 'filename_prefix')
     FUNCTION = 'save_images'
     OUTPUT_NODE = True
-    CATEGORY = 'Sick Ollie/Output'
+    CATEGORY = "Sick Ollie/Classic"
     DESCRIPTION = 'Builds output folders and filenames from dropdown-selected variables, auto-detects upstream model resources, hashes them, and saves images with Comfy metadata plus Civitai-style parameters.'
     SEARCH_ALIASES = ['output builder', 'save with metadata', 'filename builder', 'civitai metadata save']
 
@@ -706,6 +836,20 @@ class SOOutputBuilderSave:
         if bool(save_civitai_parameters):
             civitai_fields = _build_civitai_fields(generation_meta, auto_model_name_raw or resolved_model_name, base_model_hash, width, height, seed, applied_loras)
             parameters_text = _parameters_from_civitai_fields(civitai_fields)
+        structured_metadata = _build_structured_image_metadata(
+            extra_pnginfo,
+            generation_meta,
+            auto_model_name_raw or resolved_model_name,
+            base_model_hash,
+            width,
+            height,
+            seed,
+            applied_loras,
+            civitai_fields,
+        )
+        if isinstance(extra_pnginfo, dict):
+            extra_pnginfo["so_image_metadata"] = structured_metadata
+
         metadata_png = _to_pnginfo(prompt, extra_pnginfo, bool(save_prompt_json), bool(save_workflow_json), parameters_text, civitai_fields)
         metadata_exif = _to_exif_comment(prompt, extra_pnginfo, bool(save_prompt_json), bool(save_workflow_json), parameters_text, civitai_fields)
 

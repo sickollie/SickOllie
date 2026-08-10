@@ -38,7 +38,7 @@ class SOFitPreview(comfy_nodes.PreviewImage):
     RETURN_NAMES = ("images",)
     FUNCTION = "preview_fit"
     OUTPUT_NODE = True
-    CATEGORY = "Sick Ollie/Output"
+    CATEGORY = "Sick Ollie/Classic"
     DESCRIPTION = "Preview-only image viewer with contain, cover, width, height, stretch, and actual-size display modes."
     SEARCH_ALIASES = ["fit preview", "image preview", "cover preview", "contain preview"]
 

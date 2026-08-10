@@ -52,7 +52,7 @@ ALL_FOLDERS = "[All LoRA folders]"
 ROOT_FOLDER = "[LoRA root only]"
 ALL_EPOCHS = "[All epochs]"
 NO_EPOCH_TAG = "[No epoch tag]"
-CONTROL_MODES = ["fixed", "increment", "decrement", "randomize"]
+CONTROL_MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"]
 
 DEFAULT_CLEAN_NAME_MODE = "auto:1"
 LEGACY_DEFAULT_CLEANUP_RULES = r"""(?i)_\d+$
@@ -75,6 +75,13 @@ def _parent_folder(lora_name: str) -> str:
     if "/" not in normalized:
         return ""
     return normalized.rsplit("/", 1)[0]
+
+
+def _leaf_folder_name(lora_name: str) -> str:
+    parent = _parent_folder(lora_name)
+    if not parent:
+        return ""
+    return parent.rsplit("/", 1)[-1]
 
 
 def _folder_choices() -> list[str]:
@@ -255,6 +262,56 @@ def _trim_suffix_groups(stem: str, count: int) -> str:
     return "_".join(kept).strip(" _-.") or str(stem)
 
 
+def _delimiter_prefixes(stem: str) -> list[str]:
+    """Return progressive filename prefixes at common delimiter boundaries.
+
+    The original text and delimiters are preserved so this works for arbitrary
+    naming styles such as foo_bar, foo-bar, foo bar, or mixed forms.
+    """
+    value = str(stem or "").strip(" _-.")
+    if not value:
+        return []
+
+    prefixes: list[str] = []
+    # Split on runs of the filename delimiters people commonly use while
+    # retaining the original prefix text for display/output.
+    for match in re.finditer(r"[_.\-\s]+", value):
+        candidate = value[:match.start()].rstrip(" _-.")
+        if candidate and candidate not in prefixes:
+            prefixes.append(candidate)
+
+    if value not in prefixes:
+        prefixes.append(value)
+    return prefixes
+
+
+def _clean_candidate_from_mode(stem: str, mode_value: str) -> str:
+    """Resolve a clean-name dropdown choice against the current stem.
+
+    New dropdown values are stored as ``N · candidate``.  When the candidate
+    still belongs to the selected filename we return it directly, which also
+    preserves old saved dropdown values during upgrades.  Otherwise N selects
+    the Nth progressive delimiter prefix for the current filename.
+    """
+    mode_text = str(mode_value or "").strip()
+    value = str(stem or "").strip(" _-.")
+    prefixes = _delimiter_prefixes(value)
+    if not prefixes:
+        return value
+
+    if "·" in mode_text:
+        _label, candidate = mode_text.split("·", 1)
+        candidate = candidate.strip()
+        if candidate and (candidate == value or value.startswith(candidate)):
+            # Only accept a saved candidate when it ends exactly at a known
+            # delimiter boundary, preventing accidental partial-name matches.
+            if candidate in prefixes:
+                return candidate
+
+    index = _clean_mode_index(mode_text)
+    return prefixes[min(max(index, 1), len(prefixes)) - 1]
+
+
 def _clean_mode_index(mode_value: str) -> int:
     text = str(mode_value or "").strip()
     match = re.search(r"(?:^auto:|^|keep[_:\s-]*)(\d+)", text, re.IGNORECASE)
@@ -273,6 +330,12 @@ def _clean_name_from_mode(
     if "\n" in mode_text or "(?i)" in mode_text or "=>" in mode_text:
         legacy = _apply_cleanup_rules(stem, mode_text)
         return legacy or str(stem)
+
+    # Explicit dropdown selections use filename-agnostic delimiter prefixes.
+    # Keep legacy ``auto:N`` behavior unchanged so existing/new default nodes do
+    # not suddenly shorten multi-part names just because more choices are shown.
+    if "·" in mode_text:
+        return _clean_candidate_from_mode(stem, mode_text)
 
     shared = max(
         _common_suffix_count(list(pool_loras or [])),
@@ -830,6 +893,7 @@ class FolderBatchLoraStackModelOnly:
         "BOOLEAN",
         "INT",
         "STRING",
+        "STRING",
     )
     RETURN_NAMES = (
         "model",
@@ -840,9 +904,10 @@ class FolderBatchLoraStackModelOnly:
         "main_active",
         "folder_count",
         "main_trigger",
+        "main_folder",
     )
     FUNCTION = "load_loras"
-    CATEGORY = "Sick Ollie/LoRA"
+    CATEGORY = "Sick Ollie/Classic"
     DESCRIPTION = (
         "Folder-scoped, looping main LoRA tester with queue-time progression, "
         "editable regex name cleaning, four secondary LoRA slots, and inactive "
@@ -980,6 +1045,7 @@ class FolderBatchLoraStackModelOnly:
             if main_active
             else ("", "")
         )
+        main_folder = _leaf_folder_name(selected_main) if main_active else ""
 
         current_model = model
         applied: list[str] = []
@@ -1046,6 +1112,11 @@ class FolderBatchLoraStackModelOnly:
                 metadata,
             )
             applied.append(f"{lora_name}@{strength:g}")
+            secondary_applied.append({
+                "file": str(lora_name),
+                "strength": float(strength),
+                "slot": str(input_name),
+            })
 
         folder_count = len(
             _folder_loras(folder_name, bool(include_subfolders))
@@ -1060,6 +1131,7 @@ class FolderBatchLoraStackModelOnly:
             main_active,
             folder_count,
             str(main_trigger),
+            str(main_folder),
         )
 
 
@@ -1214,6 +1286,7 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
         "BOOLEAN",
         "INT",
         "STRING",
+        "STRING",
     )
     RETURN_NAMES = (
         "model",
@@ -1226,9 +1299,10 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
         "main_active",
         "folder_count",
         "main_trigger",
+        "main_folder",
     )
     FUNCTION = "load_core"
-    CATEGORY = "Sick Ollie/LoRA"
+    CATEGORY = "Sick Ollie/Classic"
     DESCRIPTION = (
         "Loads a diffusion model, applies a folder-cycling primary LoRA, "
         "then applies a dynamic rgthree-powered secondary LoRA stack."
@@ -1379,9 +1453,11 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
             if main_active
             else ("", "")
         )
+        main_folder = _leaf_folder_name(selected_main) if main_active else ""
 
         current_model = base_model
         applied: list[str] = []
+        secondary_applied: list[dict[str, Any]] = []
 
         if main_active:
             state, metadata = self._load_lora_state(selected_main)
@@ -1415,6 +1491,11 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
                 metadata,
             )
             applied.append(f"{lora_name}@{strength:g}")
+            secondary_applied.append({
+                "file": str(lora_name),
+                "strength": float(strength),
+                "slot": str(input_name),
+            })
 
         folder_count = len(
             [
@@ -1432,8 +1513,15 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
             extra["so_loader_core_diffusion_model"] = diffusion_model_file
             extra["so_loader_core_weight_dtype"] = str(weight_dtype)
             extra["so_loader_core_applied_loras"] = list(applied)
+            extra["so_loader_core_main_active"] = bool(main_active)
+            extra["so_loader_core_main_file"] = str(selected_main if main_active else "")
+            extra["so_loader_core_main_strength"] = float(main_strength) if main_active else 0.0
             extra["so_loader_core_main_trigger"] = str(main_trigger)
             extra["so_loader_core_main_trigger_source"] = str(main_trigger_source)
+            extra["so_loader_core_raw_stem"] = str(raw_stem)
+            extra["so_loader_core_clean_name"] = str(clean_name)
+            extra["so_loader_core_main_folder"] = str(main_folder)
+            extra["so_loader_core_secondary_loras"] = list(secondary_applied)
 
         return (
             current_model,
@@ -1446,6 +1534,7 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
             main_active,
             folder_count,
             str(main_trigger),
+            str(main_folder),
         )
 
 

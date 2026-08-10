@@ -35,7 +35,7 @@ const ALL_FOLDERS = "[All LoRA folders]";
 const ROOT_FOLDER = "[LoRA root only]";
 const ALL_EPOCHS = "[All epochs]";
 const NO_EPOCH_TAG = "[No epoch tag]";
-const CONTROL_MODES = ["fixed", "increment", "decrement", "randomize"];
+const CONTROL_MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"];
 const DEFAULT_CLEAN_NAME_MODE = "auto:1";
 const SECONDARY_PREFIX = "secondary_lora_";
 const MAX_SECONDARY_LORAS = 10;
@@ -228,6 +228,31 @@ function trimSuffixGroups(stem, count) {
     return kept.join("_") || String(stem ?? "");
 }
 
+function delimiterPrefixes(stem) {
+    const value = String(stem ?? "")
+        .trim()
+        .replace(/^[ _\-.]+|[ _\-.]+$/g, "");
+    if (!value) return [];
+
+    const prefixes = [];
+    const delimiterPattern = /[_.\-\s]+/g;
+    let match;
+    while ((match = delimiterPattern.exec(value)) !== null) {
+        const candidate = value
+            .slice(0, match.index)
+            .replace(/[ _\-.]+$/g, "");
+        if (candidate && !prefixes.includes(candidate)) prefixes.push(candidate);
+    }
+    if (!prefixes.includes(value)) prefixes.push(value);
+    return prefixes;
+}
+
+function cleanModeCandidate(value) {
+    const text = String(value ?? "");
+    const marker = text.indexOf("·");
+    return marker >= 0 ? text.slice(marker + 1).trim() : "";
+}
+
 function currentMainStem(node) {
     const mainValue = String(widget(node, "main_lora")?.value ?? NONE);
     if (!mainValue || mainValue === NONE) return "clean_name";
@@ -238,18 +263,21 @@ function currentMainStem(node) {
 
 function cleanNameModeChoices(node) {
     const stem = currentMainStem(node);
+    const prefixes = delimiterPrefixes(stem);
+    const choices = prefixes.map(
+        (candidate, index) => `${index + 1} · ${candidate}`,
+    );
+    return choices.length ? choices : [`1 · ${stem}`];
+}
+
+function legacyRecommendedCleanName(node, modeIndex = 1) {
+    const stem = currentMainStem(node);
     const shared = Math.max(
         commonSuffixCount(allowedMainLoras(node)),
         recognizedSuffixCount(stem),
     );
-    const choices = [];
-
-    for (let index = 1; index <= shared + 1; index++) {
-        const remove = Math.max(0, shared - (index - 1));
-        choices.push(`${index} · ${trimSuffixGroups(stem, remove)}`);
-    }
-
-    return choices.length ? choices : [`1 · ${stem}`];
+    const remove = Math.max(0, shared - (Math.max(1, modeIndex) - 1));
+    return trimSuffixGroups(stem, remove);
 }
 
 function ensureCleanNameCombo(node) {
@@ -298,10 +326,28 @@ function refreshCleanNameChoices(node) {
     const cleanWidget = ensureCleanNameCombo(node);
     if (!cleanWidget) return;
 
+    const previousValue = String(cleanWidget.value ?? "");
+    const previousCandidate = cleanModeCandidate(previousValue);
+    const currentIndex = parseCleanModeIndex(previousValue);
     const choices = cleanNameModeChoices(node);
-    const currentIndex = parseCleanModeIndex(cleanWidget.value);
+
     writeValues(cleanWidget, choices);
-    cleanWidget.value =
+
+    // If an existing saved candidate is still valid for this filename, keep it
+    // selected. This avoids changing old workflows merely because the dropdown
+    // now exposes more delimiter-based choices.
+    const exact = previousCandidate
+        ? choices.find((choice) => cleanModeCandidate(choice) === previousCandidate)
+        : null;
+
+    const legacyCandidate = !previousCandidate
+        ? legacyRecommendedCleanName(node, currentIndex)
+        : "";
+    const legacyMatch = legacyCandidate
+        ? choices.find((choice) => cleanModeCandidate(choice) === legacyCandidate)
+        : null;
+
+    cleanWidget.value = exact ?? legacyMatch ??
         choices[Math.min(Math.max(currentIndex, 1), choices.length) - 1] ??
         choices[0];
 
@@ -397,6 +443,56 @@ function refreshMainChoices(node, chooseFirst = false) {
     node.setDirtyCanvas?.(true, true);
 }
 
+function shuffledCopy(values) {
+    const result = [...values];
+    for (let index = result.length - 1; index > 0; index--) {
+        const swap = Math.floor(Math.random() * (index + 1));
+        [result[index], result[swap]] = [result[swap], result[index]];
+    }
+    return result;
+}
+
+function loaderShuffleState(node) {
+    node.properties = node.properties || {};
+    const existing = node.properties.so_loader_shuffle_state;
+    if (!existing || typeof existing !== "object") {
+        node.properties.so_loader_shuffle_state = {};
+    }
+    return node.properties.so_loader_shuffle_state;
+}
+
+function nextShuffledMainValue(node, cycle, current, loop) {
+    if (!cycle.length) return NONE;
+    if (cycle.length === 1) return cycle[0];
+
+    const key = cycle.join("\u001f");
+    const state = loaderShuffleState(node);
+
+    if (state.key !== key || !Array.isArray(state.remaining)) {
+        state.key = key;
+        // The current value is the value that was just queued, so consider it
+        // consumed when beginning a fresh bag.
+        state.remaining = shuffledCopy(cycle.filter((value) => value !== current));
+        state.last = current;
+    }
+
+    // Remove the just-used value if it is still waiting in the bag. This also
+    // makes a manually selected LoRA count as consumed for the current cycle.
+    state.remaining = state.remaining.filter((value) => value !== current);
+
+    if (!state.remaining.length) {
+        if (!loop) {
+            state.last = current;
+            return current;
+        }
+        state.remaining = shuffledCopy(cycle.filter((value) => value !== current));
+    }
+
+    const next = state.remaining.shift() ?? current;
+    state.last = next;
+    return next;
+}
+
 function nextMainValue(node) {
     const mainWidget = widget(node, "main_lora");
     const mode = String(
@@ -422,6 +518,10 @@ function nextMainValue(node) {
         return pool.length
             ? pool[Math.floor(Math.random() * pool.length)]
             : cycle[0];
+    }
+
+    if (mode === "shuffle") {
+        return nextShuffledMainValue(node, cycle, current, loop);
     }
 
     if (index < 0) {

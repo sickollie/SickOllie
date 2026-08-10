@@ -6,9 +6,16 @@ from typing import Any
 
 import folder_paths
 
+try:
+    from aiohttp import web
+    from server import PromptServer
+except Exception:  # pragma: no cover - unavailable outside ComfyUI runtime
+    web = None
+    PromptServer = None
+
 NO_FILE = "[None]"
 PROMPT_SOURCES = ["manual", "log"]
-INDEX_MODES = ["fixed", "increment", "decrement", "randomize"]
+INDEX_MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"]
 DEFAULT_CLEANUP_RULES = r"""\?\[|\]
 \\?[()]
 :\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)"""
@@ -67,11 +74,27 @@ def _read_text_file(path: Path) -> str:
     return path.read_text(errors="ignore")
 
 
-def _load_line(relative_path: str, category: str, index_value: int):
+def _usable_log_lines(relative_path: str, category: str) -> list[str]:
     path = _resolve_log_path(relative_path, category)
     if path is None or not path.exists() or not path.is_file():
-        return "", 0, 0
-    lines = [line for line in _read_text_file(path).splitlines() if line.strip()]
+        return []
+    return [line for line in _read_text_file(path).splitlines() if line.strip()]
+
+
+if PromptServer is not None and web is not None:
+
+    @PromptServer.instance.routes.get("/sickollie/prompt-core/log-lines")
+    async def so_prompt_core_log_lines(request):
+        category = str(request.rel_url.query.get("category", "prompt") or "prompt")
+        relative_path = str(request.rel_url.query.get("file", NO_FILE) or NO_FILE)
+        if category not in LOG_CATEGORIES:
+            return web.json_response({"ok": False, "error": "Invalid log category", "lines": [], "count": 0}, status=400)
+        lines = _usable_log_lines(relative_path, category)
+        return web.json_response({"ok": True, "lines": lines, "count": len(lines)})
+
+
+def _load_line(relative_path: str, category: str, index_value: int):
+    lines = _usable_log_lines(relative_path, category)
     if not lines:
         return "", 0, 0
     try:
@@ -176,7 +199,7 @@ class SOPromptLogEngine:
     RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING", "INT", "INT", "INT", "INT", "INT", "INT", "STRING", "STRING", "STRING")
     RETURN_NAMES = ("final_prompt", "source_prompt", "prompt_line", "outfit_line", "scene_line", "prompt_index_resolved", "outfit_index_resolved", "scene_index_resolved", "prompt_count", "outfit_count", "scene_count", "prompt_file", "outfit_file", "scene_file")
     FUNCTION = "build_prompt"
-    CATEGORY = "Sick Ollie/Prompt"
+    CATEGORY = "Sick Ollie/Classic"
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
@@ -227,13 +250,30 @@ class SOPromptLogEngine:
         scene_line, scene_index_resolved, scene_count = _load_line(scene_log_file, "scene", scene_index)
 
         source_prompt = prompt_line if str(prompt_source) == "log" else str(manual_prompt)
+
+        # Track what actually participated in this prompt before replacing any
+        # tokens. Loaded log rows are not considered "used" unless their token
+        # was present in the selected source prompt.
+        prompt_log_used = str(prompt_source) == "log" and bool(prompt_line)
+        outfit_a_used = bool(outfit_A) and bool(str(outfit_token_A)) and str(outfit_token_A) in source_prompt
+        outfit_b_used = bool(outfit_B) and bool(str(outfit_token_B)) and str(outfit_token_B) in source_prompt
+        outfit_c_used = bool(outfit_C) and bool(str(outfit_token_C)) and str(outfit_token_C) in source_prompt
+        scene_used = bool(scene_line) and bool(str(scene_token)) and str(scene_token) in source_prompt
+        name_used = bool(str(name_value)) and bool(str(name_token)) and str(name_token) in source_prompt
+        item_used = bool(str(item_value)) and bool(str(item_token)) and str(item_token) in source_prompt
+
         assembled = source_prompt
-        for token, value in ((outfit_token_A, outfit_A), (outfit_token_B, outfit_B), (outfit_token_C, outfit_C), (scene_token, scene_line)):
-            if value:
+        for token, value, used in (
+            (outfit_token_A, outfit_A, outfit_a_used),
+            (outfit_token_B, outfit_B, outfit_b_used),
+            (outfit_token_C, outfit_C, outfit_c_used),
+            (scene_token, scene_line, scene_used),
+        ):
+            if used:
                 assembled = _apply_token(assembled, token, value)
-        if str(name_value):
+        if name_used:
             assembled = _apply_token(assembled, name_token, name_value)
-        if str(item_value):
+        if item_used:
             assembled = _apply_token(assembled, item_token, item_value)
 
         assembled = _join_prompt_parts(
@@ -244,15 +284,76 @@ class SOPromptLogEngine:
         )
         final_prompt = _apply_cleanup_rules(assembled, cleanup_rules) if cleanup_enabled else assembled.strip()
 
+        def _log_meta(used, token, file_name, index, count, line):
+            if not used:
+                return {}
+            data = {
+                "file": str(file_name),
+                "index": int(index),
+                "count": int(count),
+                "line": str(line),
+            }
+            if token is not None:
+                data["token"] = str(token)
+            return data
+
+        resolved_metadata = {
+            "schema_version": 2,
+            "final_prompt": final_prompt,
+            "source_prompt": source_prompt,
+            "prompt": ({
+                "source": "log",
+                "file": str(prompt_log_file),
+                "index": int(prompt_index_resolved),
+                "count": int(prompt_count),
+                "line": prompt_line,
+            } if prompt_log_used else {
+                "source": "manual",
+                "manual_prompt": str(manual_prompt),
+            }),
+            "outfit_a": _log_meta(outfit_a_used, outfit_token_A, outfit_log_file_A, outfit_index_A_resolved, outfit_count_A, outfit_A),
+            "outfit_b": _log_meta(outfit_b_used, outfit_token_B, outfit_log_file_B, outfit_index_B_resolved, outfit_count_B, outfit_B),
+            "outfit_c": _log_meta(outfit_c_used, outfit_token_C, outfit_log_file_C, outfit_index_C_resolved, outfit_count_C, outfit_C),
+            "scene": _log_meta(scene_used, scene_token, scene_log_file, scene_index_resolved, scene_count, scene_line),
+            "name": ({"token": str(name_token), "value": str(name_value)} if name_used else {}),
+            "item": ({"token": str(item_token), "value": str(item_value)} if item_used else {}),
+            "prefix": ({"enabled": True, "text": str(prefix_text)} if prefix_enabled and str(prefix_text).strip() else {}),
+            "suffix": ({"enabled": True, "text": str(suffix_text)} if suffix_enabled and str(suffix_text).strip() else {}),
+            "separator": str(prefix_suffix_separator),
+            "cleanup": {"enabled": bool(cleanup_enabled)},
+        }
+
+
         extra = _extra_dict(extra_pnginfo)
         if extra is not None:
+            # Keep the original keys for backward compatibility while also
+            # embedding a stable, structured block for Image Metadata Core.
             extra["resolved_prompt"] = final_prompt
             extra["source_prompt"] = source_prompt
-            extra["prompt_log_line"] = prompt_line
-            extra["outfit_log_line"] = outfit_A
-            extra["outfit_log_line_B"] = outfit_B
-            extra["outfit_log_line_C"] = outfit_C
-            extra["scene_log_line"] = scene_line
+            extra["prompt_log_line"] = prompt_line if prompt_log_used else ""
+            extra["outfit_log_line"] = outfit_A if outfit_a_used else ""
+            extra["outfit_log_line_B"] = outfit_B if outfit_b_used else ""
+            extra["outfit_log_line_C"] = outfit_C if outfit_c_used else ""
+            extra["scene_log_line"] = scene_line if scene_used else ""
+            extra["so_prompt_core_resolved"] = resolved_metadata
+
+            # Dedicated scalar fields describe only values that actually
+            # participated in the generated prompt.
+            extra["so_prompt_file"] = str(prompt_log_file) if prompt_log_used else ""
+            extra["so_prompt_index_resolved"] = int(prompt_index_resolved) if prompt_log_used else None
+            extra["so_prompt_count"] = int(prompt_count) if prompt_log_used else 0
+            extra["so_outfit_a_file"] = str(outfit_log_file_A) if outfit_a_used else ""
+            extra["so_outfit_a_index_resolved"] = int(outfit_index_A_resolved) if outfit_a_used else None
+            extra["so_outfit_a_count"] = int(outfit_count_A) if outfit_a_used else 0
+            extra["so_outfit_b_file"] = str(outfit_log_file_B) if outfit_b_used else ""
+            extra["so_outfit_b_index_resolved"] = int(outfit_index_B_resolved) if outfit_b_used else None
+            extra["so_outfit_b_count"] = int(outfit_count_B) if outfit_b_used else 0
+            extra["so_outfit_c_file"] = str(outfit_log_file_C) if outfit_c_used else ""
+            extra["so_outfit_c_index_resolved"] = int(outfit_index_C_resolved) if outfit_c_used else None
+            extra["so_outfit_c_count"] = int(outfit_count_C) if outfit_c_used else 0
+            extra["so_scene_file"] = str(scene_log_file) if scene_used else ""
+            extra["so_scene_index_resolved"] = int(scene_index_resolved) if scene_used else None
+            extra["so_scene_count"] = int(scene_count) if scene_used else 0
             workflow = extra.get("workflow")
             if isinstance(workflow, dict):
                 node = _find_workflow_node(workflow, unique_id)
@@ -262,11 +363,11 @@ class SOPromptLogEngine:
                         "so_prompt_core_schema_version": 10,
                         "so_saved_final_prompt": final_prompt,
                         "so_saved_source_prompt": source_prompt,
-                        "so_saved_prompt_line": prompt_line,
-                        "so_saved_outfit_line": outfit_A,
-                        "so_saved_outfit_line_B": outfit_B,
-                        "so_saved_outfit_line_C": outfit_C,
-                        "so_saved_scene_line": scene_line,
+                        "so_saved_prompt_line": prompt_line if prompt_log_used else "",
+                        "so_saved_outfit_line": outfit_A if outfit_a_used else "",
+                        "so_saved_outfit_line_B": outfit_B if outfit_b_used else "",
+                        "so_saved_outfit_line_C": outfit_C if outfit_c_used else "",
+                        "so_saved_scene_line": scene_line if scene_used else "",
                     })
 
         primary_line, primary_index, primary_count, primary_file = outfit_A, outfit_index_A_resolved, outfit_count_A, outfit_log_file_A

@@ -1,7 +1,7 @@
 [project]
 name = "sick-ollie-node-pack"
-version = "1.1.1"
-description = "A compact ComfyUI node pack for LoRA testing, prompt-log automation, Krea2 generation, metadata-aware output, and image previews with pizazz."
+version = "2.0.0"
+description = "A ComfyUI node pack with Classic compatibility and the redesigned Studio workflow for LoRA testing, prompt automation, generation, metadata-aware output, and image inspection."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = []
@@ -11,9 +11,9 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/sickollie/SickOllie/tree/main"
-Documentation = "https://github.com/sickollie/"
-"Bug Tracker" = "https://github.com/sickollie/issues"
+Repository = "https://github.com/sickollie/SickOllie"
+Documentation = "https://github.com/sickollie/SickOllie/tree/main/docs"
+"Bug Tracker" = "https://github.com/sickollie/SickOllie/issues"
 
 [tool.comfy]
 PublisherId = "sickollie"

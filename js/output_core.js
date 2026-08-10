@@ -91,6 +91,21 @@ function unwrap(value) {
     return current;
 }
 
+function shortenSavedPath(value) {
+    const text = String(value ?? "");
+    if (!text) return "";
+
+    const normalized = text.replace(/\\/g, "/");
+    const marker = "/output/";
+    const index = normalized.toLowerCase().lastIndexOf(marker);
+    if (index >= 0) {
+        const relative = normalized.slice(index + 1);
+        return relative.replace(/\//g, "\\");
+    }
+
+    return text;
+}
+
 function normalizeResolvedValues(value) {
     let current = unwrap(value);
 
@@ -222,7 +237,7 @@ function installResolvedButtons(node) {
 function applyStoredState(node, properties = {}) {
     const storedPath = properties?.so_saved_output_path;
     if (storedPath != null) {
-        setTextWidget(node, "saved_path", storedPath);
+        setTextWidget(node, "saved_path", shortenSavedPath(storedPath));
     }
 
     node.__soResolvedValues = normalizeResolvedValues(
@@ -298,7 +313,7 @@ app.registerExtension({
 
             let savedPath = unwrap(message?.saved_path);
             if (savedPath != null) {
-                savedPath = String(savedPath);
+                savedPath = shortenSavedPath(String(savedPath));
                 setTextWidget(this, "saved_path", savedPath);
                 this.properties = this.properties || {};
                 this.properties.so_saved_output_path = savedPath;

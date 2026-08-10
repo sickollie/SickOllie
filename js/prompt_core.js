@@ -4,7 +4,7 @@ const TARGET = "SOPromptLogEngine";
 const SCHEMA_VERSION = 10;
 const NO_FILE = "[None]";
 const LARGE_RANDOM_MAX = 1000000000;
-const MODES = ["fixed", "increment", "decrement", "randomize"];
+const MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"];
 
 const DEFAULT_CLEANUP = String.raw`\?\[|\]
 \\?[()]
@@ -67,6 +67,24 @@ const TEXT_HEIGHTS = {
 
 function widget(node, name) {
     return node.widgets?.find((item) => item.name === name);
+}
+
+function readValues(comboWidget) {
+    const source = comboWidget?.options?.values;
+    if (Array.isArray(source)) return [...source];
+    if (typeof source === "function") {
+        try {
+            const result = source();
+            return Array.isArray(result) ? [...result] : [];
+        } catch (error) {}
+    }
+    return [];
+}
+
+function writeValues(comboWidget, values) {
+    if (!comboWidget) return;
+    comboWidget.options = comboWidget.options || {};
+    comboWidget.options.values = [...values];
 }
 
 function isMode(value) {
@@ -377,6 +395,267 @@ function bindTokenCallbacks(node) {
     }
 }
 
+const STREAM_BASES = ["prompt", "outfit_A", "outfit_B", "outfit_C", "scene"];
+
+function streamCategory(base) {
+    if (base === "prompt") return "prompt";
+    if (base.startsWith("outfit_")) return "outfit";
+    return "scene";
+}
+
+function streamTokenWidget(base) {
+    if (base === "outfit_A") return "outfit_token_A";
+    if (base === "outfit_B") return "outfit_token_B";
+    if (base === "outfit_C") return "outfit_token_C";
+    if (base === "scene") return "scene_token";
+    return "";
+}
+
+function normalizedIndex(value, count) {
+    if (!count) return 0;
+    let number = Number(value ?? 0);
+    if (!Number.isFinite(number)) number = 0;
+    return ((Math.trunc(number) % count) + count) % count;
+}
+
+function shuffledIndices(count, exclude = null) {
+    const values = Array.from({ length: count }, (_, index) => index)
+        .filter((index) => index !== exclude);
+    for (let index = values.length - 1; index > 0; index--) {
+        const swap = Math.floor(Math.random() * (index + 1));
+        [values[index], values[swap]] = [values[swap], values[index]];
+    }
+    return values;
+}
+
+function promptShuffleState(node) {
+    node.properties = node.properties || {};
+    if (!node.properties.so_prompt_shuffle_state || typeof node.properties.so_prompt_shuffle_state !== "object") {
+        node.properties.so_prompt_shuffle_state = {};
+    }
+    return node.properties.so_prompt_shuffle_state;
+}
+
+function resetShuffleBag(node, base) {
+    const all = promptShuffleState(node);
+    delete all[base];
+}
+
+function nextShuffledIndex(node, base, current, count, fileValue) {
+    if (!count) return current;
+    if (count === 1) return 0;
+
+    const currentResolved = normalizedIndex(current, count);
+    const key = `${String(fileValue ?? NO_FILE)}\u001f${count}`;
+    const all = promptShuffleState(node);
+    let state = all[base];
+
+    if (!state || state.key !== key || !Array.isArray(state.remaining)) {
+        state = {
+            key,
+            remaining: shuffledIndices(count, currentResolved),
+            last: currentResolved,
+        };
+        all[base] = state;
+    }
+
+    // A value manually selected during the cycle counts as consumed.
+    state.remaining = state.remaining.filter((index) => index !== currentResolved);
+
+    if (!state.remaining.length) {
+        // Every usable line has now appeared once. Begin a fresh shuffled cycle,
+        // but do not immediately repeat the line that just ran.
+        state.remaining = shuffledIndices(count, currentResolved);
+    }
+
+    const next = state.remaining.shift();
+    state.last = next;
+    return Number.isInteger(next) ? next : currentResolved;
+}
+
+async function fetchLogLines(category, fileValue) {
+    const file = String(fileValue ?? NO_FILE);
+    if (!file || file === NO_FILE) return [];
+    const response = await fetch(
+        `/sickollie/prompt-core/log-lines?category=${encodeURIComponent(category)}&file=${encodeURIComponent(file)}`,
+        { method: "GET" },
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    return Array.isArray(payload?.lines) ? payload.lines.map((line) => String(line)) : [];
+}
+
+async function refreshStreamLines(node, base, force = false) {
+    const [fileName] = streamConfig(base);
+    const fileValue = String(widget(node, fileName)?.value ?? NO_FILE);
+    node.__soLogLines = node.__soLogLines || {};
+    node.__soLogLineFiles = node.__soLogLineFiles || {};
+
+    if (!force && node.__soLogLineFiles[base] === fileValue && Array.isArray(node.__soLogLines[base])) {
+        refreshStreamIndexPreview(node, base);
+        return node.__soLogLines[base];
+    }
+
+    const requestToken = Symbol(base);
+    node.__soLogRequests = node.__soLogRequests || {};
+    node.__soLogRequests[base] = requestToken;
+
+    try {
+        const lines = await fetchLogLines(streamCategory(base), fileValue);
+        if (node.__soLogRequests[base] !== requestToken) return [];
+        node.__soLogLineFiles[base] = fileValue;
+        node.__soLogLines[base] = lines;
+        resetShuffleBag(node, base);
+        refreshStreamIndexPreview(node, base);
+        node.setDirtyCanvas?.(true, true);
+        return lines;
+    } catch (error) {
+        console.warn(`[Sick Ollie Prompt Core] Could not read ${base} log`, error);
+        if (node.__soLogRequests[base] === requestToken) {
+            node.__soLogLineFiles[base] = fileValue;
+            node.__soLogLines[base] = [];
+            refreshStreamIndexPreview(node, base);
+        }
+        return [];
+    }
+}
+
+function activeSourceTemplate(node) {
+    if (String(widget(node, "prompt_source")?.value ?? "manual") !== "log") {
+        return String(widget(node, "manual_prompt")?.value ?? "");
+    }
+    const lines = node.__soLogLines?.prompt || [];
+    if (!lines.length) return "";
+    const index = normalizedIndex(widget(node, "prompt_index")?.value, lines.length);
+    return String(lines[index] ?? "");
+}
+
+function shuffleStreamIsUsed(node, base) {
+    if (base === "prompt") return String(widget(node, "prompt_source")?.value ?? "manual") === "log";
+    const tokenWidget = streamTokenWidget(base);
+    const token = String(widget(node, tokenWidget)?.value ?? "");
+    return Boolean(token) && activeSourceTemplate(node).includes(token);
+}
+
+function previewChoice(index, line) {
+    const compact = String(line ?? "").replace(/\s+/g, " ").trim();
+    const shown = compact.length > 150 ? `${compact.slice(0, 149).trimEnd()}…` : compact;
+    return `${index} · ${shown}`;
+}
+
+function previewWidgetName(base) {
+    if (base === "prompt") return "prompt_index_preview";
+    if (base === "outfit_A") return "outfit_index_preview_A";
+    if (base === "outfit_B") return "outfit_index_preview_B";
+    if (base === "outfit_C") return "outfit_index_preview_C";
+    return "scene_index_preview";
+}
+
+function previewNoLinesValue() {
+    return "0 · [no usable lines]";
+}
+
+function previewLabel(base, count) {
+    const [, , indexName] = streamConfig(base);
+    return `${indexName} · ${count} ${count === 1 ? "line" : "lines"}`;
+}
+
+function ensureStreamIndexPreview(node, base) {
+    const key = `__so${previewWidgetName(base)}`;
+    if (node[key]) return node[key];
+    const [, , indexName] = streamConfig(base);
+    const original = widget(node, indexName);
+    if (!original) return null;
+
+    const originalIndex = node.widgets?.indexOf(original) ?? -1;
+    original.__soHiddenPreviewIndex = true;
+    original.computeSize = () => [0, 0];
+    if (original.inputEl) original.inputEl.style.display = "none";
+
+    const combo = node.addWidget(
+        "combo",
+        previewWidgetName(base),
+        previewNoLinesValue(),
+        (value) => {
+            const match = String(value ?? "").match(/^(-?\d+)\s*·/);
+            if (!match) return;
+            const index = Number.parseInt(match[1], 10);
+            if (!Number.isFinite(index)) return;
+            resetShuffleBag(node, base);
+            original.value = index;
+            try { original.callback?.(index); } catch (error) {}
+            refreshStreamIndexPreview(node, base);
+        },
+        { values: [previewNoLinesValue()], serialize: false },
+    );
+    combo.serialize = false;
+    combo.options = { ...(combo.options || {}), serialize: false };
+    combo.label = previewLabel(base, 0);
+
+    const appendedIndex = node.widgets?.indexOf(combo) ?? -1;
+    if (originalIndex >= 0 && appendedIndex >= 0) {
+        node.widgets.splice(appendedIndex, 1);
+        node.widgets.splice(originalIndex + 1, 0, combo);
+    }
+
+    node[key] = combo;
+    return combo;
+}
+
+function refreshStreamIndexPreview(node, base) {
+    const combo = ensureStreamIndexPreview(node, base);
+    const [, , indexName] = streamConfig(base);
+    const indexWidget = widget(node, indexName);
+    if (!combo || !indexWidget) return;
+    const lines = node.__soLogLines?.[base] || [];
+    if (!lines.length) {
+        writeValues(combo, [previewNoLinesValue()]);
+        combo.value = previewNoLinesValue();
+        combo.label = previewLabel(base, 0);
+        return;
+    }
+    const choices = lines.map((line, index) => previewChoice(index, line));
+    writeValues(combo, choices);
+    const current = normalizedIndex(indexWidget.value, lines.length);
+    combo.value = choices[current] ?? choices[0];
+    combo.label = previewLabel(base, lines.length);
+}
+
+function ensurePromptIndexPreview(node) {
+    return ensureStreamIndexPreview(node, "prompt");
+}
+
+function refreshPromptIndexPreview(node) {
+    return refreshStreamIndexPreview(node, "prompt");
+}
+
+function bindLogControls(node) {
+    for (const base of STREAM_BASES) {
+        const [fileName, modeName] = streamConfig(base);
+        const fileWidget = widget(node, fileName);
+        if (fileWidget && !fileWidget.__soLogRefreshBound) {
+            fileWidget.__soLogRefreshBound = true;
+            const originalCallback = fileWidget.callback;
+            fileWidget.callback = function (...args) {
+                const result = originalCallback?.apply(this, args);
+                refreshStreamLines(node, base, true);
+                return result;
+            };
+        }
+        const modeWidget = widget(node, modeName);
+        if (modeWidget && !modeWidget.__soShuffleModeBound) {
+            modeWidget.__soShuffleModeBound = true;
+            const originalCallback = modeWidget.callback;
+            modeWidget.callback = function (...args) {
+                const result = originalCallback?.apply(this, args);
+                resetShuffleBag(node, base);
+                return result;
+            };
+        }
+        refreshStreamLines(node, base, false);
+    }
+}
+
 function streamConfig(base) {
     if (base === "prompt") return ["prompt_log_file", "prompt_mode", "prompt_index"];
     if (base === "outfit_A") return ["outfit_log_file_A", "outfit_mode_A", "outfit_index_A"];
@@ -397,12 +676,31 @@ function advanceStream(node, base) {
     let current = Number(indexWidget.value ?? 0);
     if (!Number.isFinite(current)) current = 0;
     let next = current;
-    if (mode === "increment") next = current + 1;
-    else if (mode === "decrement") next = current - 1;
-    else if (mode === "randomize") next = Math.floor(Math.random() * LARGE_RANDOM_MAX);
+
+    if (mode === "shuffle") {
+        // Do not consume outfit/scene entries on generations where their token
+        // never participated in the source prompt.
+        if (!shuffleStreamIsUsed(node, base)) return;
+        const lines = node.__soLogLines?.[base] || [];
+        if (!lines.length) return;
+        next = nextShuffledIndex(
+            node,
+            base,
+            current,
+            lines.length,
+            widget(node, fileName)?.value,
+        );
+    } else if (mode === "increment") {
+        next = current + 1;
+    } else if (mode === "decrement") {
+        next = current - 1;
+    } else if (mode === "randomize") {
+        next = Math.floor(Math.random() * LARGE_RANDOM_MAX);
+    }
 
     indexWidget.value = next;
     try { indexWidget.callback?.(next); } catch (error) {}
+    refreshStreamIndexPreview(node, base);
     node.setDirtyCanvas?.(true, true);
 }
 
@@ -426,7 +724,10 @@ function applyLayout(node) {
 
     createCopyButtons(node);
     bindTokenCallbacks(node);
+    for (const base of STREAM_BASES) ensureStreamIndexPreview(node, base);
+    bindLogControls(node);
     bindQueueProgression(node);
+    for (const base of STREAM_BASES) refreshStreamIndexPreview(node, base);
     updateCopyButtons(node);
 
     for (const [name, height] of Object.entries(TEXT_HEIGHTS)) {

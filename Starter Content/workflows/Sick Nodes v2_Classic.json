@@ -1,0 +1,799 @@
+{
+  "id": "fd8b00f3-c247-4345-9266-7baf2e0265ea",
+  "revision": 2,
+  "last_node_id": 497,
+  "last_link_id": 945,
+  "nodes": [
+    {
+      "id": 458,
+      "type": "VAEDecode",
+      "pos": [
+        1590,
+        5810
+      ],
+      "size": [
+        160.4517578125,
+        46
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 926
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 927
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            911
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode",
+        "cnr_id": "comfy-core",
+        "ver": "0.28.2"
+      },
+      "widgets_values": [],
+      "color": "#009933",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 457,
+      "type": "SOOutputBuilderSave",
+      "pos": [
+        1590,
+        4480
+      ],
+      "size": [
+        570,
+        1268
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 911
+        },
+        {
+          "name": "generation_info",
+          "shape": 7,
+          "type": "STRING",
+          "link": 929
+        },
+        {
+          "name": "applied_loras",
+          "shape": 7,
+          "type": "STRING",
+          "link": 923
+        },
+        {
+          "name": "clean_name",
+          "type": "STRING",
+          "widget": {
+            "name": "clean_name"
+          },
+          "link": 921
+        },
+        {
+          "name": "raw_stem",
+          "type": "STRING",
+          "widget": {
+            "name": "raw_stem"
+          },
+          "link": 920
+        },
+        {
+          "name": "model_name",
+          "type": "STRING",
+          "widget": {
+            "name": "model_name"
+          },
+          "link": 924
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 928
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            932
+          ]
+        },
+        {
+          "name": "save_path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "subfolder",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOOutputBuilderSave",
+        "so_saved_output_path": "output\\_SickOllie_kit\\no\\no_lora_SICK OLLIE_Krea2_FP8_192459_00001.png",
+        "so_output_resolved_values": {
+          "clean_name": "no",
+          "raw_stem": "no_lora",
+          "model_name": "SICK OLLIE_Krea2_FP8",
+          "prompt_index": "0",
+          "outfit_index": "0",
+          "scene_index": "0"
+        }
+      },
+      "widgets_values": [
+        "_SickOllie_kit",
+        "",
+        "clean_name",
+        "[None]",
+        "[None]",
+        "[None]",
+        "_",
+        "",
+        "raw_stem",
+        "model_name",
+        "time_hhmmss",
+        "[None]",
+        "[None]",
+        "[None]",
+        "_",
+        "png",
+        100,
+        5,
+        true,
+        true,
+        true,
+        "",
+        "",
+        "",
+        1067818384785872,
+        0,
+        0,
+        0,
+        0,
+        "",
+        "",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        "output\\_SickOllie_kit\\no\\no_lora_SICK OLLIE_Krea2_FP8_192459_00001.png"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 484,
+      "type": "SOFitPreview",
+      "pos": [
+        2231.1169111034155,
+        3530
+      ],
+      "size": [
+        1582.04034310734,
+        2667.801938190678
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 932
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOFitPreview",
+        "so_fit_preview_images": [
+          {
+            "filename": "SickOllieFitPreview_temp_ugmyx_00001_.png",
+            "type": "temp",
+            "subfolder": ""
+          }
+        ],
+        "so_fit_preview_index": 0
+      },
+      "widgets_values": [
+        "Contain + Upscale",
+        "Blurred Image",
+        "#000000"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 493,
+      "type": "SOPromptLogEngine",
+      "pos": [
+        940,
+        3530
+      ],
+      "size": [
+        580,
+        2096
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "name_value",
+          "type": "STRING",
+          "widget": {
+            "name": "name_value"
+          },
+          "link": 944
+        }
+      ],
+      "outputs": [
+        {
+          "name": "final_prompt",
+          "type": "STRING",
+          "links": [
+            943
+          ]
+        },
+        {
+          "name": "source_prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "prompt_line",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "outfit_line",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "scene_line",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "prompt_index_resolved",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "outfit_index_resolved",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "scene_index_resolved",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "prompt_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "outfit_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "scene_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "prompt_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "outfit_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "scene_file",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOPromptLogEngine",
+        "so_prompt_core_schema_version": 10,
+        "so_saved_final_prompt": "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Classic”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Classic” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.",
+        "so_saved_source_prompt": "young woman, full-body photorealistic analog fashion portrait, centered within a vast horizonless field of deep purple dusk sky, the entire frame composed of her figure, the fallen jacket, and smooth violet atmospheric negative space. Her body faces away from the camera in a clear back view, completely nude, with her head turned over one shoulder to look directly back at the viewer, calm self-aware expression, faint teasing smile, relaxed posture, realistic anatomy, natural skin texture, subtle sun-kissed tan, pronounced pale bikini tan lines.\n\nBoth arms hang naturally straight down beside her thighs, shoulders lowered, elbows loose, hands relaxed. An oversized ivory satin bomber jacket has slipped fully from her shoulders and down her arms, with the sleeves loosely gathered around her wrists. The heavy body of the jacket hangs behind her legs immediately beneath her butt, suspended from her lowered wrists as though she had been wearing it and simply let it fall. Glossy champagne-white satin, soft diamond quilting, black ribbed cuffs and waistband, large ornate gold scorpion embroidery across the back, clearly legible stitched lettering reading “SICK DOLLS” above the scorpion.\n\nSoft frontal point-and-shoot flash illuminates her back, shoulders, hips, legs, and the reflective satin jacket, warm skin tones glowing against the cool violet sky. Subtle 35mm grain, gentle flash falloff, faint color halation, slightly imperfect analog framing, dreamy motel-noir sensuality transformed into a minimal surreal editorial portrait, quiet provocative confidence, expansive purple negative space, photorealistic.",
+        "so_saved_prompt_line": "A rear-view bedroom portrait of a young woman kneeling on a bed in a sheer black mesh top and thigh-high fishnet stockings. She leans forward on both hands and turns her head slightly toward the window, while the red bedspread and pale curtains create contrasting color blocks around her. The pose emphasizes the garment texture and body line rather than facial expression. Natural window light, crisp mesh detail, and bold contemporary boudoir photography.",
+        "so_saved_outfit_line": "a pale lavender camisole with trim along the neckline and a cropped hoodie",
+        "so_saved_outfit_line_B": "",
+        "so_saved_outfit_line_C": "",
+        "so_saved_scene_line": "the lavender fields of Provence at sunset, endless rows of purple blooms stretching into the distance, low golden light warming the scene, a soft amber haze in the air, and long delicate shadows across the dusty paths",
+        "so_prompt_shuffle_state": {}
+      },
+      "widgets_values": [
+        "manual",
+        "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Classic”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Classic” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.",
+        "prompts/clouds yearbook.txt",
+        "shuffle",
+        86,
+        "OUTFIT",
+        "outfits/OUTFITS FULL_2453.txt",
+        "shuffle",
+        451977460,
+        "OUTFIT_B",
+        "[None]",
+        "shuffle",
+        0,
+        "OUTFIT_C",
+        "[None]",
+        "shuffle",
+        0,
+        "SCENE",
+        "scenes/Natural_Beauty_SCENE_Inserts_200.txt",
+        "shuffle",
+        291,
+        "NAME",
+        "",
+        "BRAND",
+        "Kit",
+        false,
+        "",
+        false,
+        "",
+        ", ",
+        true,
+        "\\?\\[|\\]\n\\\\?[()]\n:\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)",
+        "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Classic”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Classic” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element."
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 482,
+      "type": "SOGenerationPipeline",
+      "pos": [
+        1590,
+        3530
+      ],
+      "size": [
+        570,
+        870
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 930
+        },
+        {
+          "name": "positive_text",
+          "type": "STRING",
+          "link": 943
+        },
+        {
+          "name": "positive_conditioning",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "link": null
+        },
+        {
+          "name": "negative_conditioning",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "links": [
+            926
+          ]
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "links": [
+            927
+          ]
+        },
+        {
+          "name": "seed_used",
+          "type": "INT",
+          "links": [
+            928
+          ]
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "generation_info",
+          "type": "STRING",
+          "links": [
+            929
+          ]
+        }
+      ],
+      "title": "⚡Generation Core⚡",
+      "properties": {
+        "Node name for S&R": "SOGenerationPipeline",
+        "so_generation_core_schema_version": 26,
+        "so_last_used_seed": 155855149872758,
+        "so_last_width": 1440,
+        "so_last_height": 1920
+      },
+      "widgets_values": [
+        "qwen3vl_4b_fp8_scaled.safetensors",
+        "krea2",
+        "default",
+        "qwen_image_vae.safetensors",
+        "custom",
+        1440,
+        1920,
+        "3:4 (Portrait Standard)",
+        1,
+        1,
+        9,
+        1,
+        "euler",
+        "beta",
+        1,
+        1.25,
+        460454514348134,
+        null,
+        null,
+        null,
+        null
+      ],
+      "color": "#009933",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 459,
+      "type": "SOLoaderCoreEngine",
+      "pos": [
+        300,
+        3530
+      ],
+      "size": [
+        570,
+        910
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            930
+          ]
+        },
+        {
+          "name": "diffusion_model_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "diffusion_model_stem",
+          "type": "STRING",
+          "links": [
+            924
+          ]
+        },
+        {
+          "name": "main_file",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "raw_stem",
+          "type": "STRING",
+          "links": [
+            920
+          ]
+        },
+        {
+          "name": "clean_name",
+          "type": "STRING",
+          "links": [
+            921,
+            944
+          ]
+        },
+        {
+          "name": "applied_loras",
+          "type": "STRING",
+          "links": [
+            923
+          ]
+        },
+        {
+          "name": "main_active",
+          "type": "BOOLEAN",
+          "links": null
+        },
+        {
+          "name": "folder_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "main_trigger",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "main_folder",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOLoaderCoreEngine",
+        "so_scrubbed_main_lora": "SickOllie\\characters\\sickdolls\\kit_krea2_epoch_06.safetensors"
+      },
+      "widgets_values": [
+        "SICK OLLIE_Krea2_FP8.safetensors",
+        "default",
+        "[All LoRA folders]",
+        "[All epochs]",
+        false,
+        "None",
+        1,
+        true,
+        true,
+        "fixed",
+        true,
+        "no_lora",
+        true,
+        "1 · clean",
+        null,
+        null,
+        null,
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\sicklight v2\\sicklight_krea2_v1_epoch_04.safetensors",
+          "strength": 1
+        },
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\scenegirls\\scene_krea2_epoch_20.safetensors",
+          "strength": 1
+        },
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\sick neon\\sickneon_v2_krea2_epoch_8.safetensors",
+          "strength": 1
+        },
+        {
+          "on": false,
+          "lora": "SickOllie\\styles\\sicklight\\sicklight_krea2_v1_epoch_20.safetensors",
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        }
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    }
+  ],
+  "links": [
+    [
+      911,
+      458,
+      0,
+      457,
+      0,
+      "IMAGE"
+    ],
+    [
+      920,
+      459,
+      4,
+      457,
+      4,
+      "STRING"
+    ],
+    [
+      921,
+      459,
+      5,
+      457,
+      3,
+      "STRING"
+    ],
+    [
+      923,
+      459,
+      6,
+      457,
+      2,
+      "STRING"
+    ],
+    [
+      924,
+      459,
+      2,
+      457,
+      5,
+      "STRING"
+    ],
+    [
+      926,
+      482,
+      0,
+      458,
+      0,
+      "LATENT"
+    ],
+    [
+      927,
+      482,
+      1,
+      458,
+      1,
+      "VAE"
+    ],
+    [
+      928,
+      482,
+      2,
+      457,
+      6,
+      "INT"
+    ],
+    [
+      929,
+      482,
+      5,
+      457,
+      1,
+      "STRING"
+    ],
+    [
+      930,
+      459,
+      0,
+      482,
+      0,
+      "MODEL"
+    ],
+    [
+      932,
+      457,
+      0,
+      484,
+      0,
+      "IMAGE"
+    ],
+    [
+      943,
+      493,
+      0,
+      482,
+      1,
+      "STRING"
+    ],
+    [
+      944,
+      459,
+      5,
+      493,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.6726719777464687,
+      "offset": [
+        587.4692746871949,
+        -3192.552811253167
+      ]
+    },
+    "frontendVersion": "1.45.21",
+    "workflowRendererVersion": "LG",
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

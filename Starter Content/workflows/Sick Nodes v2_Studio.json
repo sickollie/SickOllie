@@ -1,0 +1,839 @@
+{
+  "id": "091dac7c-747b-4c46-9549-6b22b8e47134",
+  "revision": 2,
+  "last_node_id": 515,
+  "last_link_id": 982,
+  "nodes": [
+    {
+      "id": 513,
+      "type": "SOOutputBuilderSaveStudio",
+      "pos": [
+        40,
+        3730
+      ],
+      "size": [
+        820,
+        911
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "images",
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "pos": [
+            0,
+            48
+          ],
+          "link": null
+        },
+        {
+          "label": "",
+          "name": "generation_info",
+          "shape": 7,
+          "type": "STRING",
+          "pos": [
+            -10000,
+            -10000
+          ],
+          "link": null
+        },
+        {
+          "label": "",
+          "name": "applied_loras",
+          "shape": 7,
+          "type": "STRING",
+          "pos": [
+            -10000,
+            -10000
+          ],
+          "link": null
+        },
+        {
+          "label": "samples",
+          "name": "samples",
+          "shape": 7,
+          "type": "LATENT",
+          "pos": [
+            0,
+            69
+          ],
+          "link": 976
+        },
+        {
+          "label": "vae",
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "pos": [
+            0,
+            90
+          ],
+          "link": 977
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            978
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOOutputBuilderSaveStudio",
+        "so_saved_output_path": "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_192908_00001.png",
+        "so_output_resolved_values": {
+          "clean_name": "sicktype",
+          "raw_stem": "sicktype_krea2_variantA_sickollie",
+          "model_name": "SICK OLLIE_Krea2_FP8",
+          "main_folder": "sicktype",
+          "main_trigger": "sicktype",
+          "seed": "772751811086902",
+          "prompt_index": "",
+          "outfit_index": "",
+          "scene_index": "",
+          "prompt_file": "",
+          "outfit_file": "",
+          "scene_file": "",
+          "context_source": "auto"
+        }
+      },
+      "widgets_values": [
+        "_SickOllie_StudioNodes",
+        "",
+        "clean_name",
+        "[None]",
+        "[None]",
+        "[None]",
+        "_",
+        "",
+        "raw_stem",
+        "model_name",
+        "time_hhmmss",
+        "[None]",
+        "[None]",
+        "[None]",
+        "_",
+        "png",
+        100,
+        5,
+        true,
+        true,
+        true,
+        "",
+        "",
+        "",
+        0,
+        "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_182052_00001.png",
+        "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_182416_00001.png",
+        "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_182416_00001.png",
+        "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_182416_00001.png",
+        "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_182416_00001.png",
+        "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_182416_00001.png",
+        "output\\_SickOllie_StudioNodes\\sicktype\\sicktype_krea2_variantA_sickollie_SICK OLLIE_Krea2_FP8_192908_00001.png"
+      ],
+      "bgcolor": "#000000"
+    },
+    {
+      "id": 484,
+      "type": "SOFitPreviewStudio",
+      "pos": [
+        1000.219160799823,
+        3728.0137412604568
+      ],
+      "size": [
+        1550,
+        2220
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 978
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            982
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOFitPreviewStudio",
+        "so_fit_preview_images": [
+          {
+            "filename": "SickOllieFitPreview_temp_ugmyx_00004_.png",
+            "type": "temp",
+            "subfolder": ""
+          }
+        ],
+        "so_fit_preview_index": 0
+      },
+      "widgets_values": [
+        "Contain + Upscale",
+        "Blurred Image",
+        "#000000"
+      ],
+      "color": "#222",
+      "bgcolor": "#000000"
+    },
+    {
+      "id": 511,
+      "type": "SOPromptLogEngineStudio",
+      "pos": [
+        -1640,
+        3730
+      ],
+      "size": [
+        800,
+        1142
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "color_off": "#7f8792",
+          "color_on": "#6ee7a2",
+          "label": "NAME value",
+          "name": "name_value",
+          "type": "STRING",
+          "widget": {
+            "name": "name_value"
+          },
+          "link": 979
+        },
+        {
+          "color_off": "#7f8792",
+          "color_on": "#6ee7a2",
+          "label": "ITEM value",
+          "name": "item_value",
+          "type": "STRING",
+          "widget": {
+            "name": "item_value"
+          },
+          "link": null
+        },
+        {
+          "color_off": "#7f8792",
+          "color_on": "#6ee7a2",
+          "label": "Prefix text",
+          "name": "prefix_text",
+          "type": "STRING",
+          "widget": {
+            "name": "prefix_text"
+          },
+          "link": null
+        },
+        {
+          "color_off": "#7f8792",
+          "color_on": "#6ee7a2",
+          "label": "Suffix text",
+          "name": "suffix_text",
+          "type": "STRING",
+          "widget": {
+            "name": "suffix_text"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "final_prompt",
+          "type": "STRING",
+          "links": [
+            975
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOPromptLogEngineStudio",
+        "so_prompt_core_schema_version": 10,
+        "so_prompt_dashboard_version": 3,
+        "so_prompt_shuffle_state": {},
+        "so_saved_final_prompt": "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element."
+      },
+      "widgets_values": [
+        "manual",
+        "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.",
+        "prompts/SICK_OLLIE_V2_CLASSIC_STUDIO_SICKTYPE_25_PROMPT_LOG.txt",
+        "shuffle",
+        20,
+        "OUTFIT",
+        "outfits/OUTFITS FULL_2453.txt",
+        "shuffle",
+        77,
+        "OUTFIT_B",
+        "[None]",
+        "randomize",
+        0,
+        "OUTFIT_C",
+        "[None]",
+        "randomize",
+        0,
+        "SCENE",
+        "scenes/Natural_Beauty_SCENE_Inserts_200.txt",
+        "randomize",
+        467655767,
+        "NAME",
+        "",
+        "BRAND",
+        "",
+        false,
+        "",
+        false,
+        "",
+        ", ",
+        true,
+        "\\?\\[|\\]\n\\\\?[()]\n:\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)",
+        "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element."
+      ],
+      "bgcolor": "#000000"
+    },
+    {
+      "id": 512,
+      "type": "SOGenerationPipelineStudio",
+      "pos": [
+        -800,
+        3730
+      ],
+      "size": [
+        800,
+        949
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "model",
+          "name": "model",
+          "type": "MODEL",
+          "pos": [
+            0,
+            48
+          ],
+          "link": 974
+        },
+        {
+          "label": "positive_text",
+          "name": "positive_text",
+          "type": "STRING",
+          "pos": [
+            0,
+            69
+          ],
+          "link": 975
+        },
+        {
+          "label": "positive_conditioning",
+          "name": "positive_conditioning",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "pos": [
+            0,
+            90
+          ],
+          "link": null
+        },
+        {
+          "label": "negative_conditioning",
+          "name": "negative_conditioning",
+          "shape": 7,
+          "type": "CONDITIONING",
+          "pos": [
+            0,
+            111
+          ],
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "links": [
+            976
+          ]
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "links": [
+            977
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOGenerationPipelineStudio",
+        "so_generation_core_schema_version": 40,
+        "so_last_used_seed": 772751811086902,
+        "so_generation_dashboard_advanced": false
+      },
+      "widgets_values": [
+        "qwen3vl_4b_fp8_scaled.safetensors",
+        "krea2",
+        "default",
+        "qwen_image_vae.safetensors",
+        "preset",
+        1920,
+        1440,
+        "3:4 (Portrait Standard)",
+        2,
+        1,
+        9,
+        1,
+        "euler",
+        "beta",
+        1,
+        1.25,
+        -1
+      ],
+      "color": "#222222",
+      "bgcolor": "#000000"
+    },
+    {
+      "id": 498,
+      "type": "SOImageMetadataCoreStudio",
+      "pos": [
+        -399.67268448572577,
+        4915.484760087057
+      ],
+      "size": [
+        1280,
+        1250.0000000000002
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 982
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "final_prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "source_prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "generation_settings",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "models",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "resolved_inputs",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "full_report",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "has_metadata",
+          "type": "BOOLEAN",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOImageMetadataCoreStudio",
+        "so_metadata_core_payload": {
+          "status": "File: wired image\nImage: 1224 × 1632 IMAGE\nMetadata detected: Sick Ollie structured, Comfy workflow",
+          "final_prompt": "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.",
+          "source_prompt": "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.",
+          "generation": "Steps: 9\nCFG: 1.0\nSampler: euler\nScheduler: beta\nDenoise: 1.0\nModel shift: 1.25\nWidth: 1224\nHeight: 1632\nBatch size: 1",
+          "models": "Diffusion model: SICK OLLIE_Krea2_FP8.safetensors\nModel hash: fb51603fbb\nWeight dtype: default\nText encoder: qwen3vl_4b_fp8_scaled.safetensors\nVAE: qwen_image_vae.safetensors\nVAE hash: a70580f021\nMain trigger: sicktype\nMain LoRA: sicktype\\sicktype_krea2_variantA_sickollie.safetensors @ 2",
+          "prompt_log": "",
+          "outfit_a": "",
+          "outfit_b": "",
+          "outfit_c": "",
+          "scene": "",
+          "substitutions": "",
+          "resolved_inputs": "GENERATION\nSteps: 9\nCFG: 1.0\nSampler: euler\nScheduler: beta\nDenoise: 1.0\nModel shift: 1.25\nWidth: 1224\nHeight: 1632\nBatch size: 1\n\nMODELS + LORAS\nDiffusion model: SICK OLLIE_Krea2_FP8.safetensors\nModel hash: fb51603fbb\nWeight dtype: default\nText encoder: qwen3vl_4b_fp8_scaled.safetensors\nVAE: qwen_image_vae.safetensors\nVAE hash: a70580f021\nMain trigger: sicktype\nMain LoRA: sicktype\\sicktype_krea2_variantA_sickollie.safetensors @ 2",
+          "full_report": "FINAL PROMPT\na vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\n\nSOURCE PROMPT\na vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\n\nMETADATA\nGENERATION\nSteps: 9\nCFG: 1.0\nSampler: euler\nScheduler: beta\nDenoise: 1.0\nModel shift: 1.25\nWidth: 1224\nHeight: 1632\nBatch size: 1\n\nMODELS + LORAS\nDiffusion model: SICK OLLIE_Krea2_FP8.safetensors\nModel hash: fb51603fbb\nWeight dtype: default\nText encoder: qwen3vl_4b_fp8_scaled.safetensors\nVAE: qwen_image_vae.safetensors\nVAE hash: a70580f021\nMain trigger: sicktype\nMain LoRA: sicktype\\sicktype_krea2_variantA_sickollie.safetensors @ 2",
+          "metadata_json": "{\n  \"source_file\": \"wired image\",\n  \"image\": {\n    \"width\": 1224,\n    \"height\": 1632,\n    \"format\": \"IMAGE\"\n  },\n  \"resolved\": {\n    \"schema_version\": 2,\n    \"final_prompt\": \"a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\",\n    \"source_prompt\": \"a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\",\n    \"prompt\": {\n      \"source\": \"manual\",\n      \"manual_prompt\": \"a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\"\n    },\n    \"outfit_a\": {},\n    \"outfit_b\": {},\n    \"outfit_c\": {},\n    \"scene\": {},\n    \"name\": {},\n    \"item\": {},\n    \"prefix\": {},\n    \"suffix\": {},\n    \"separator\": \", \",\n    \"cleanup\": {\n      \"enabled\": true\n    }\n  },\n  \"generation\": {\n    \"positive_prompt\": \"a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\",\n    \"negative_prompt\": \"\",\n    \"clip_name\": \"qwen3vl_4b_fp8_scaled.safetensors\",\n    \"clip_type\": \"krea2\",\n    \"clip_device\": \"default\",\n    \"vae_name\": \"qwen_image_vae.safetensors\",\n    \"resolution_mode\": \"preset\",\n    \"width\": 1224,\n    \"height\": 1632,\n    \"batch_size\": 1,\n    \"seed_used\": 772751811086902,\n    \"steps\": 9,\n    \"cfg\": 1.0,\n    \"sampler_name\": \"euler\",\n    \"scheduler\": \"beta\",\n    \"denoise\": 1.0,\n    \"shift\": 1.25,\n    \"positive_conditioning_source\": \"internal_text\",\n    \"negative_conditioning_source\": \"internal_empty\"\n  },\n  \"models\": {\n    \"diffusion_model\": \"SICK OLLIE_Krea2_FP8.safetensors\",\n    \"diffusion_model_hash\": \"fb51603fbb\",\n    \"weight_dtype\": \"default\",\n    \"text_encoder\": \"qwen3vl_4b_fp8_scaled.safetensors\",\n    \"vae\": \"qwen_image_vae.safetensors\",\n    \"vae_hash\": \"a70580f021\",\n    \"main_lora\": {\n      \"role\": \"main\",\n      \"file\": \"sicktype\\\\sicktype_krea2_variantA_sickollie.safetensors\",\n      \"name\": \"sicktype_krea2_variantA_sickollie\",\n      \"strength\": \"2\",\n      \"hash\": \"c26d85257e\"\n    },\n    \"secondary_loras\": [],\n    \"all_loras\": [\n      {\n        \"role\": \"main\",\n        \"file\": \"sicktype\\\\sicktype_krea2_variantA_sickollie.safetensors\",\n        \"name\": \"sicktype_krea2_variantA_sickollie\",\n        \"strength\": \"2\",\n        \"hash\": \"c26d85257e\"\n      }\n    ],\n    \"main_trigger\": \"sicktype\"\n  },\n  \"final_prompt\": \"a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\",\n  \"source_prompt\": \"a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.\"\n}",
+          "seed": 772751811086902,
+          "seed_text": "772751811086902",
+          "has_metadata": true
+        },
+        "so_metadata_preview_images": [
+          {
+            "filename": "SickOllieMetadataPreview_498.png",
+            "type": "temp",
+            "subfolder": ""
+          }
+        ]
+      },
+      "widgets_values": [
+        null,
+        null,
+        null,
+        "[None]",
+        "File: wired image\nImage: 1224 × 1632 IMAGE\nMetadata detected: Sick Ollie structured, Comfy workflow",
+        "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.",
+        "a vertical Sick Ollie v2 software release poster built around exactly two clearly readable text elements: “Sick Nodes” and “Studio”. “Sick Nodes” is the dominant foreground title, enormous, fully formed, opaque, unobstructed, and immediately readable; nothing crosses through the letters. The title uses bold fluorescent hot-pink paint or solid black typography with a crisp acid-yellow lower-right offset, controlled pink-white glow, tactile edges, and a sweeping underline when appropriate. “Studio” is the only secondary readable text, centered inside a small polished chrome badge with rounded clipped corners and crisp black geometric type. A synthetic feminine muse is shown from behind at a slight three-quarter turn, one cheek barely visible, with short icy-lavender hair, pearl-white chrome shell plates, black mirrored internal mechanics, and a partially exposed mechanical neck and spine. The heavy black title above her casts stretched rainbow thermal shadows that pool into a pale airbrushed field, keeping the composition chic, clean, and slightly uncanny. The surrounding field is unmistakably Sick Ollie: a continuous macro thermal-liquid background with deep black negative space, fluorescent hot pink, electric cyan, cobalt blue, ultraviolet, orange, crimson, and acid yellow; oily marbling, glowing cellular forms, wet lacquer highlights, holographic color separation, analog grain, VHS softness, chromatic misregistration, radiant neon halation, glossy resin, liquid chrome, and controlled dye bleed. The background has no room, horizon, floor, landscape, or literal software interface. The central object remains behind the title and never obstructs either readable text element.",
+        "Steps: 9\nCFG: 1.0\nSampler: euler\nScheduler: beta\nDenoise: 1.0\nModel shift: 1.25\nWidth: 1224\nHeight: 1632\nBatch size: 1",
+        "Diffusion model: SICK OLLIE_Krea2_FP8.safetensors\nModel hash: fb51603fbb\nWeight dtype: default\nText encoder: qwen3vl_4b_fp8_scaled.safetensors\nVAE: qwen_image_vae.safetensors\nVAE hash: a70580f021\nMain trigger: sicktype\nMain LoRA: sicktype\\sicktype_krea2_variantA_sickollie.safetensors @ 2",
+        "GENERATION\nSteps: 9\nCFG: 1.0\nSampler: euler\nScheduler: beta\nDenoise: 1.0\nModel shift: 1.25\nWidth: 1224\nHeight: 1632\nBatch size: 1\n\nMODELS + LORAS\nDiffusion model: SICK OLLIE_Krea2_FP8.safetensors\nModel hash: fb51603fbb\nWeight dtype: default\nText encoder: qwen3vl_4b_fp8_scaled.safetensors\nVAE: qwen_image_vae.safetensors\nVAE hash: a70580f021\nMain trigger: sicktype\nMain LoRA: sicktype\\sicktype_krea2_variantA_sickollie.safetensors @ 2",
+        "",
+        "",
+        "",
+        "Steps: 9\nCFG: 1.0\nSampler: euler\nScheduler: beta\nDenoise: 1.0\nModel shift: 1.25\nWidth: 1224\nHeight: 816\nBatch size: 1",
+        "Diffusion model: SICK OLLIE_Krea2_FP8.safetensors\nModel hash: fb51603fbb\nWeight dtype: default\nText encoder: qwen3vl_4b_fp8_scaled.safetensors\nVAE: qwen_image_vae.safetensors\nVAE hash: a70580f021\nMain trigger: sicktype\nMain LoRA: sicktype\\sicktype_krea2_variantD_sickollie.safetensors @ 2"
+      ],
+      "color": "#222",
+      "bgcolor": "#000000"
+    },
+    {
+      "id": 510,
+      "type": "SOLoaderCoreEngineStudio",
+      "pos": [
+        -2400,
+        3730
+      ],
+      "size": [
+        720,
+        617
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "pos": [
+            720,
+            37
+          ],
+          "links": [
+            974
+          ]
+        },
+        {
+          "name": "clean_name",
+          "type": "STRING",
+          "pos": [
+            720,
+            53
+          ],
+          "links": [
+            979
+          ]
+        },
+        {
+          "name": "main_trigger",
+          "type": "STRING",
+          "pos": [
+            720,
+            69
+          ],
+          "links": []
+        },
+        {
+          "name": "main_folder",
+          "type": "STRING",
+          "pos": [
+            720,
+            85
+          ],
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SOLoaderCoreEngineStudio",
+        "so_loader_dashboard_version": 2,
+        "so_loader_shuffle_state": {
+          "key": "SickOllie\\characters\\bailey\\bailey_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\bambi\\bambi_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\bandit\\bandit_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\becky\\becky_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\binx\\binx_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\bonnie\\bonnie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\brinley\\brinley_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\brooke\\brooke_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\callie\\callie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\charlie\\charlie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\citra\\citra_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\claire\\claire_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\clover\\clover_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\courtney\\courtney_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\dahlia\\dahlia_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\daisy\\daisy_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\dani\\dani_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\elaine\\elaine_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\ellie\\ellie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\elvie\\elvie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\emmy\\emmy_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\fawn\\fawn_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\faye\\faye_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\fern\\fern_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\fiona\\fiona_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\flora\\flora_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\gabi\\gabi_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\hadley\\hadley_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\hailey\\hailey_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\hannah\\hannah_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\harper\\harper_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\hazel\\hazel_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\heather\\heather_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\holly\\holly_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\ikki\\ikki_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\indigo\\indigo_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\iris\\iris_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\ivybloom\\ivybloom_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\izzy\\izzy_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\jojo\\jojo_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\jolene\\jolene_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\june\\june_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\juniper\\juniper_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\juno\\juno_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\kaitlyn\\kaitlyn_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\karissa\\karissa_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\katie\\katie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\keely\\keely_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\kiki\\kikimassacre_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\kira\\kira_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\kit\\kit_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\lacey\\lacey_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\laura\\laura_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\lilith\\lilith_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\lotus\\lotus_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\lumi\\lumi_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\mabelpines\\mabelpines_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\maisie\\maisie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\maribelle\\maribelle_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\marley\\marley_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\mckenna\\mckenna_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\meadow\\meadow_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\meghan\\meghan_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\melanie\\melanie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\melody\\melody_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\mickey\\mickey_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\mila\\mila_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\natalie\\natalie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\noli\\noli_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\nyla\\nyla_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\penelope\\penelope_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\penny\\penny_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\remi\\remi_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\riley\\riley_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\river\\river_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\robin\\robin_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\rory\\rory_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\rosie\\rosie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\sabrina\\sabrina_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\samantha\\samantha_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\samira\\samira_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\shelbie\\shelbie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\shion\\shion_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\shyla\\shyla_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\skipper\\skipper_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\sophia\\sophia_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\sparrow\\sparrow_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\stacie\\stacie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\starbutterfly\\starbutterfly_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\stef\\stef_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\suki\\suki_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\sunday\\sunday_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\tamika\\tamika_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\tamsin\\tamsin_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\tanner\\tanner_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\taryn\\taryn_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\tilly\\tilly_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\timber\\timber_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\tommy\\tommy_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\tullie\\tullie_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\twiggy\\twiggy_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\vika\\vika_krea2_epoch_10.safetensors\u001fSickOllie\\characters\\willa\\willa_krea2_epoch_10.safetensors",
+          "remaining": [
+            "SickOllie\\characters\\citra\\citra_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\meadow\\meadow_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\brooke\\brooke_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\kit\\kit_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\sophia\\sophia_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\maribelle\\maribelle_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\indigo\\indigo_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\mila\\mila_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\faye\\faye_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\maisie\\maisie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\timber\\timber_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\noli\\noli_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\daisy\\daisy_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\shelbie\\shelbie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\hailey\\hailey_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\melanie\\melanie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\holly\\holly_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\sparrow\\sparrow_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\melody\\melody_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\gabi\\gabi_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\riley\\riley_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\fiona\\fiona_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\becky\\becky_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\remi\\remi_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\rory\\rory_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\harper\\harper_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\shion\\shion_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\starbutterfly\\starbutterfly_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\willa\\willa_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\elaine\\elaine_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\dahlia\\dahlia_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\mabelpines\\mabelpines_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\sabrina\\sabrina_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\kiki\\kikimassacre_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\ivybloom\\ivybloom_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\tanner\\tanner_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\lotus\\lotus_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\claire\\claire_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\katie\\katie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\heather\\heather_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\karissa\\karissa_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\sunday\\sunday_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\penny\\penny_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\skipper\\skipper_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\elvie\\elvie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\fern\\fern_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\stef\\stef_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\nyla\\nyla_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\lumi\\lumi_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\samantha\\samantha_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\bonnie\\bonnie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\tamika\\tamika_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\jolene\\jolene_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\natalie\\natalie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\vika\\vika_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\kaitlyn\\kaitlyn_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\mickey\\mickey_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\jojo\\jojo_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\hannah\\hannah_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\ikki\\ikki_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\twiggy\\twiggy_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\tommy\\tommy_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\river\\river_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\tullie\\tullie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\juniper\\juniper_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\emmy\\emmy_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\keely\\keely_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\june\\june_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\clover\\clover_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\samira\\samira_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\hazel\\hazel_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\hadley\\hadley_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\stacie\\stacie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\dani\\dani_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\charlie\\charlie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\suki\\suki_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\robin\\robin_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\bandit\\bandit_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\izzy\\izzy_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\penelope\\penelope_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\meghan\\meghan_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\tamsin\\tamsin_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\lacey\\lacey_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\brinley\\brinley_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\flora\\flora_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\binx\\binx_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\courtney\\courtney_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\iris\\iris_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\rosie\\rosie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\fawn\\fawn_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\kira\\kira_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\mckenna\\mckenna_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\bambi\\bambi_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\ellie\\ellie_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\juno\\juno_krea2_epoch_10.safetensors",
+            "SickOllie\\characters\\taryn\\taryn_krea2_epoch_10.safetensors"
+          ],
+          "last": "SickOllie\\characters\\shyla\\shyla_krea2_epoch_10.safetensors"
+        }
+      },
+      "widgets_values": [
+        "SICK OLLIE_Krea2_FP8.safetensors",
+        "default",
+        "[All LoRA folders]",
+        "[All epochs]",
+        true,
+        "None",
+        1,
+        true,
+        true,
+        "fixed",
+        true,
+        "no_lora",
+        true,
+        "1 · clean",
+        {
+          "on": false,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        },
+        {
+          "on": true,
+          "lora": null,
+          "strength": 1
+        }
+      ],
+      "bgcolor": "#000000"
+    }
+  ],
+  "links": [
+    [
+      974,
+      510,
+      0,
+      512,
+      0,
+      "MODEL"
+    ],
+    [
+      975,
+      511,
+      0,
+      512,
+      1,
+      "STRING"
+    ],
+    [
+      976,
+      512,
+      0,
+      513,
+      3,
+      "LATENT"
+    ],
+    [
+      977,
+      512,
+      1,
+      513,
+      4,
+      "VAE"
+    ],
+    [
+      978,
+      513,
+      0,
+      484,
+      0,
+      "IMAGE"
+    ],
+    [
+      979,
+      510,
+      1,
+      511,
+      0,
+      "STRING"
+    ],
+    [
+      982,
+      484,
+      0,
+      498,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.683157938350066,
+      "offset": [
+        2758.5852127547746,
+        -3335.2726890524254
+      ]
+    },
+    "frontendVersion": "1.45.21",
+    "workflowRendererVersion": "LG",
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

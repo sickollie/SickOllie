@@ -2,8 +2,9 @@
 
 ## rgthree-comfy
 
-The dynamic secondary LoRA row interaction and drawing approach in
-`loader_core_engine.js` is adapted from rgthree-comfy's Power Lora Loader.
+The secondary-LoRA interaction and drawing approach used by Loader Core in
+`js/loader_core.js` and `js/studio_loader_core.js` is adapted from
+rgthree-comfy's Power Lora Loader.
 
 Copyright (c) 2023 Regis Gaughan, III (rgthree)
 
@@ -23,4 +24,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE.
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
