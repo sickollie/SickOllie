@@ -286,7 +286,7 @@ def _build_parameters_text(generation_meta: dict[str, Any], model_name: str, wid
 
 
 _HASH_CACHE: dict[str, dict[str, str | float]] | None = None
-_HASH_CACHE_PATH = Path(__file__).resolve().parent / '.cache' / 'hash_cache.json'
+_HASH_CACHE_PATH = Path(getattr(folder_paths, 'get_user_directory', lambda: Path(__file__).resolve().parent / 'data')()) / 'SickOllie' / 'hash_cache.json'
 
 
 def _load_hash_cache() -> dict[str, dict[str, str | float]]:
@@ -318,13 +318,16 @@ def _calc_file_hash(path_text: str) -> str:
     if not path or not os.path.isfile(path):
         return ''
     try:
-        mtime = os.path.getmtime(path)
+        stat = os.stat(path)
+        mtime = int(stat.st_mtime_ns)
+        size = int(stat.st_size)
     except Exception:
         mtime = 0
-    key = os.path.basename(path)
+        size = 0
+    key = os.path.abspath(path)
     cache = _load_hash_cache()
     record = cache.get(key)
-    if record and record.get('mtime') == mtime and record.get('hash'):
+    if record and record.get('mtime_ns') == mtime and record.get('size') == size and record.get('hash'):
         return str(record['hash'])
 
     sha256_hash = hashlib.sha256()
@@ -332,7 +335,7 @@ def _calc_file_hash(path_text: str) -> str:
         for byte_block in iter(lambda: f.read(1024 * 1024), b''):
             sha256_hash.update(byte_block)
     value = sha256_hash.hexdigest()[:10]
-    cache[key] = {'hash': value, 'mtime': mtime}
+    cache[key] = {'hash': value, 'mtime_ns': mtime, 'size': size}
     _save_hash_cache(cache)
     return value
 

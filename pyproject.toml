@@ -1,7 +1,7 @@
 [project]
 name = "sick-ollie-node-pack"
-version = "2.0.0"
-description = "A ComfyUI node pack with Classic compatibility and the redesigned Studio workflow for LoRA testing, prompt automation, generation, metadata-aware output, and image inspection."
+version = "3.0.0"
+description = "A ComfyUI production pack with Classic compatibility, Studio workflow cores, visual LoRA and recipe libraries, and integrated LoRA/log organizers."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = []

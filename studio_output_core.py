@@ -381,7 +381,7 @@ def _build_parameters_text(generation_meta: dict[str, Any], model_name: str, wid
 
 
 _HASH_CACHE: dict[str, dict[str, str | float]] | None = None
-_HASH_CACHE_PATH = Path(__file__).resolve().parent / '.cache' / 'hash_cache.json'
+_HASH_CACHE_PATH = Path(getattr(folder_paths, 'get_user_directory', lambda: Path(__file__).resolve().parent / 'data')()) / 'SickOllie' / 'hash_cache.json'
 
 
 def _load_hash_cache() -> dict[str, dict[str, str | float]]:
@@ -413,13 +413,16 @@ def _calc_file_hash(path_text: str) -> str:
     if not path or not os.path.isfile(path):
         return ''
     try:
-        mtime = os.path.getmtime(path)
+        stat = os.stat(path)
+        mtime = int(stat.st_mtime_ns)
+        size = int(stat.st_size)
     except Exception:
         mtime = 0
-    key = os.path.basename(path)
+        size = 0
+    key = os.path.abspath(path)
     cache = _load_hash_cache()
     record = cache.get(key)
-    if record and record.get('mtime') == mtime and record.get('hash'):
+    if record and record.get('mtime_ns') == mtime and record.get('size') == size and record.get('hash'):
         return str(record['hash'])
 
     sha256_hash = hashlib.sha256()
@@ -427,7 +430,7 @@ def _calc_file_hash(path_text: str) -> str:
         for byte_block in iter(lambda: f.read(1024 * 1024), b''):
             sha256_hash.update(byte_block)
     value = sha256_hash.hexdigest()[:10]
-    cache[key] = {'hash': value, 'mtime': mtime}
+    cache[key] = {'hash': value, 'mtime_ns': mtime, 'size': size}
     _save_hash_cache(cache)
     return value
 
@@ -825,6 +828,37 @@ def _build_structured_image_metadata(
     }
 
 
+def _record_completed_lora_usage(structured_metadata: dict[str, Any], output_path: str) -> None:
+    """Mark every applied LoRA tested only after an output was saved."""
+    try:
+        from .solo_catalog import get_catalog
+
+        models = structured_metadata.get("models") if isinstance(structured_metadata, dict) else {}
+        entries = models.get("all_loras") if isinstance(models, dict) else []
+        if not entries and isinstance(models, dict) and isinstance(models.get("main_lora"), dict):
+            entries = [models["main_lora"]]
+        getter = getattr(folder_paths, "get_full_path", None)
+        seen: set[str] = set()
+        for entry in entries or []:
+            if not isinstance(entry, dict):
+                continue
+            file_name = str(entry.get("file") or "").strip()
+            if not file_name:
+                continue
+            full_path = getter("loras", file_name) if callable(getter) else None
+            if not full_path or not os.path.isfile(full_path):
+                continue
+            resolved = os.path.abspath(full_path)
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            get_catalog().record_usage(resolved, output_path)
+    except Exception as error:
+        # Review telemetry is helpful but must never turn a completed image save
+        # into a failed workflow.
+        print(f"[SickOllie] Could not record LoRA usage: {error}")
+
+
 class SOOutputBuilderSave:
     @classmethod
     def INPUT_TYPES(cls):
@@ -1032,6 +1066,9 @@ class SOOutputBuilderSave:
             results.append({'filename': file_name, 'subfolder': subfolder, 'type': 'output'})
             last_path = out_path
             counter += 1
+
+        if last_path:
+            _record_completed_lora_usage(structured_metadata, last_path)
 
         # Persist the resolved path string into workflow metadata so the read-only field survives reload.
         if isinstance(extra_pnginfo, dict):

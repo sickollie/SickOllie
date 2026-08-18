@@ -1,0 +1,22 @@
+[
+  { "tag": "faceout", "pattern": "(?i)\\bfaceout\\b" },
+  { "tag": "vintage-magazine", "pattern": "(?i)\\b(?:vintage[^\\r\\n]{0,30}magazine|magazine cover|naturist-fashion magazine)\\b" },
+  { "tag": "y2k", "pattern": "(?i)\\b(?:90s|y2k|late-1990s|early-2000s|mid-2000s)\\b" },
+  { "tag": "cosmic-vaporwave", "pattern": "(?i)\\b(?:cosmic|vaporwave|synth-pop)\\b" },
+  { "tag": "sicktype", "pattern": "(?i)\\bsicktype\\b|thermal-drip|molten chromatic" },
+  { "tag": "neon", "pattern": "(?i)\\b(?:neon|blacklight|UV-reactive|ultraviolet)\\b" },
+  { "tag": "psychedelic", "pattern": "(?i)\\bpsychedelic\\b" },
+  { "tag": "roadtrip", "pattern": "(?i)\\b(?:road[ _-]?trip|seward|alaska fishing harbor|neon carlos)\\b" },
+  { "tag": "suburban", "pattern": "(?i)\\b(?:suburban|neighborhood|midwest)\\b" },
+  { "tag": "dataset", "pattern": "(?i)\\b(?:dataset creator|identity-focused|identity study)\\b" },
+  { "tag": "multi-subject", "pattern": "(?i)\\b(?:two women|two adult women|man and woman|duo portrait|2plus)\\b" },
+  { "tag": "character", "pattern": "(?i)\\b(?:starbutterfly|1girl|cartoon character)\\b" },
+  { "tag": "high-key-flash", "pattern": "(?i)\\b(?:high-key|american apparel|hard flash|direct flash|on-camera flash)\\b" },
+  { "tag": "analog", "pattern": "(?i)\\b(?:analog|35mm|film grain|point-and-shoot)\\b" },
+  { "tag": "crop-safe", "pattern": "(?i)\\b(?:crop[ _-]?safe|headshots trimmed|torso[ _-]?only|crop flexible)\\b" },
+  { "tag": "partial-coverage", "pattern": "(?i)\\b(?:partial coverage|single[ _-]?item|two[ _-]?item|bare everywhere else|naked everywhere else)\\b" },
+  { "tag": "privatewear", "pattern": "(?i)\\b(?:privatewear|fetish roleplay|hotwear|lingerie)\\b" },
+  { "tag": "alt-egirl", "pattern": "(?i)\\b(?:e-girl|egirl|catgirl)\\b" },
+  { "tag": "sicklight", "pattern": "(?i)\\bsick[ _-]?light\\b|\\bsicklight\\b" },
+  { "tag": "cute", "pattern": "(?i)\\b(?:cute|cutie|babydoll|church girl)\\b" }
+]

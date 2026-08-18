@@ -16,6 +16,7 @@ except Exception:  # pragma: no cover - unavailable outside ComfyUI runtime
 NO_FILE = "[None]"
 PROMPT_SOURCES = ["manual", "log"]
 INDEX_MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"]
+PLACEMENT_MODES = ["smart", "token", "append", "prepend", "off"]
 DEFAULT_CLEANUP_RULES = r"""\?\[|\]
 \\?[()]
 :\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)"""
@@ -104,8 +105,79 @@ def _load_line(relative_path: str, category: str, index_value: int):
     return lines[index], index, len(lines)
 
 
+def _token_candidates(configured_token: str, *standard_aliases: str) -> tuple[str, ...]:
+    """Return explicit and braced spellings, longest-first and without duplicates."""
+    candidates: list[str] = []
+
+    def add(raw_token: str) -> None:
+        token = str(raw_token or "").strip()
+        if not token:
+            return
+        if token.startswith("{") and token.endswith("}") and len(token) > 2:
+            bare = token[1:-1].strip()
+            for value in (token, bare):
+                if value and value not in candidates:
+                    candidates.append(value)
+            return
+        for value in (f"{{{token}}}", token):
+            if value not in candidates:
+                candidates.append(value)
+
+    add(configured_token)
+    for alias in standard_aliases:
+        add(alias)
+    return tuple(sorted(candidates, key=len, reverse=True))
+
+
+def _alias_pattern(candidates: tuple[str, ...] | list[str]) -> re.Pattern | None:
+    parts = []
+    for candidate in candidates:
+        token = str(candidate or "")
+        if not token:
+            continue
+        escaped = re.escape(token)
+        left = r"(?<![A-Za-z0-9_])" if re.match(r"[A-Za-z0-9_]", token[0]) else ""
+        right = r"(?![A-Za-z0-9_])" if re.match(r"[A-Za-z0-9_]", token[-1]) else ""
+        parts.append(f"{left}(?:{escaped}){right}")
+    return re.compile("|".join(parts)) if parts else None
+
+
+def _find_aliases(text: str, candidates: tuple[str, ...] | list[str]) -> list[str]:
+    pattern = _alias_pattern(candidates)
+    if pattern is None:
+        return []
+    found: list[str] = []
+    for match in pattern.finditer(str(text)):
+        token = match.group(0)
+        if token not in found:
+            found.append(token)
+    return found
+
+
+def _replace_aliases(
+    text: str,
+    candidates: tuple[str, ...] | list[str],
+    value: str,
+) -> tuple[str, list[str], int]:
+    """Replace complete placeholder aliases without matching token prefixes."""
+    pattern = _alias_pattern(candidates)
+    if pattern is None:
+        return str(text), [], 0
+    matched: list[str] = []
+
+    def replace(match: re.Match) -> str:
+        token = match.group(0)
+        if token not in matched:
+            matched.append(token)
+        return str(value)
+
+    replaced, count = pattern.subn(replace, str(text))
+    return replaced, matched, count
+
+
 def _apply_token(text: str, token: str, value: str) -> str:
-    return str(text).replace(str(token), str(value)) if token else str(text)
+    # Kept as a compatibility helper for callers that import it directly.
+    return _replace_aliases(text, _token_candidates(token), value)[0]
 
 
 def _apply_cleanup_rules(text: str, rules_text: str) -> str:
@@ -150,6 +222,25 @@ def _join_prompt_parts(separator: str, *parts: str) -> str:
     return str(separator).join(str(part).strip() for part in parts if str(part).strip())
 
 
+def _join_component_parts(separator: str, *parts: str) -> str:
+    """Join assembly parts without producing a comma immediately after punctuation."""
+    values = [str(part).strip() for part in parts if str(part).strip()]
+    if not values:
+        return ""
+    result = values[0]
+    for value in values[1:]:
+        joiner = str(separator)
+        if joiner == ", " and re.search(r"[.,;:!?]$", result):
+            joiner = " "
+        result = f"{result}{joiner}{value}"
+    return result
+
+
+def _compact_removed_placeholder(text: str) -> str:
+    result = re.sub(r"[ \t]+([,.;:!?])", r"\1", str(text))
+    return re.sub(r"[ \t]{2,}", " ", result)
+
+
 class SOPromptLogEngine:
     @classmethod
     def INPUT_TYPES(cls):
@@ -165,18 +256,22 @@ class SOPromptLogEngine:
                 "prompt_mode": (INDEX_MODES, {"default": "increment"}),
                 "prompt_index": ("INT", int_widget),
                 "outfit_token_A": ("STRING", {"default": "OUTFIT_A", "multiline": False}),
+                "outfit_placement_A": (PLACEMENT_MODES, {"default": "smart"}),
                 "outfit_log_file_A": (outfit_files, {"default": NO_FILE}),
                 "outfit_mode_A": (INDEX_MODES, {"default": "randomize"}),
                 "outfit_index_A": ("INT", int_widget),
                 "outfit_token_B": ("STRING", {"default": "OUTFIT_B", "multiline": False}),
+                "outfit_placement_B": (PLACEMENT_MODES, {"default": "smart"}),
                 "outfit_log_file_B": (outfit_files, {"default": NO_FILE}),
                 "outfit_mode_B": (INDEX_MODES, {"default": "randomize"}),
                 "outfit_index_B": ("INT", int_widget),
                 "outfit_token_C": ("STRING", {"default": "OUTFIT_C", "multiline": False}),
+                "outfit_placement_C": (PLACEMENT_MODES, {"default": "smart"}),
                 "outfit_log_file_C": (outfit_files, {"default": NO_FILE}),
                 "outfit_mode_C": (INDEX_MODES, {"default": "randomize"}),
                 "outfit_index_C": ("INT", int_widget),
                 "scene_token": ("STRING", {"default": "SCENE", "multiline": False}),
+                "scene_placement": (PLACEMENT_MODES, {"default": "smart"}),
                 "scene_log_file": (scene_files, {"default": NO_FILE}),
                 "scene_mode": (INDEX_MODES, {"default": "randomize"}),
                 "scene_index": ("INT", int_widget),
@@ -192,7 +287,11 @@ class SOPromptLogEngine:
                 "cleanup_enabled": ("BOOLEAN", {"default": True}),
                 "cleanup_rules": ("STRING", {"default": DEFAULT_CLEANUP_RULES, "multiline": True, "dynamicPrompts": False}),
                 "saved_prompt": ("STRING", {"default": "", "multiline": True, "dynamicPrompts": False}),
+                "trigger_token": ("STRING", {"default": "TRIGGER", "multiline": False}),
+                "trigger_placement": (PLACEMENT_MODES, {"default": "off"}),
+                "trigger_override": ("STRING", {"default": "", "multiline": False}),
             },
+            "optional": {"main_trigger": ("STRING", {"forceInput": True})},
             "hidden": {"extra_pnginfo": "EXTRA_PNGINFO", "unique_id": "UNIQUE_ID"},
         }
 
@@ -213,18 +312,22 @@ class SOPromptLogEngine:
         prompt_mode,
         prompt_index,
         outfit_token_A,
+        outfit_placement_A,
         outfit_log_file_A,
         outfit_mode_A,
         outfit_index_A,
         outfit_token_B,
+        outfit_placement_B,
         outfit_log_file_B,
         outfit_mode_B,
         outfit_index_B,
         outfit_token_C,
+        outfit_placement_C,
         outfit_log_file_C,
         outfit_mode_C,
         outfit_index_C,
         scene_token,
+        scene_placement,
         scene_log_file,
         scene_mode,
         scene_index,
@@ -240,6 +343,10 @@ class SOPromptLogEngine:
         cleanup_enabled,
         cleanup_rules,
         saved_prompt,
+        trigger_token="TRIGGER",
+        trigger_placement="off",
+        trigger_override="",
+        main_trigger="",
         extra_pnginfo=None,
         unique_id=None,
     ):
@@ -251,30 +358,131 @@ class SOPromptLogEngine:
 
         source_prompt = prompt_line if str(prompt_source) == "log" else str(manual_prompt)
 
-        # Track what actually participated in this prompt before replacing any
-        # tokens. Loaded log rows are not considered "used" unless their token
-        # was present in the selected source prompt.
         prompt_log_used = str(prompt_source) == "log" and bool(prompt_line)
-        outfit_a_used = bool(outfit_A) and bool(str(outfit_token_A)) and str(outfit_token_A) in source_prompt
-        outfit_b_used = bool(outfit_B) and bool(str(outfit_token_B)) and str(outfit_token_B) in source_prompt
-        outfit_c_used = bool(outfit_C) and bool(str(outfit_token_C)) and str(outfit_token_C) in source_prompt
-        scene_used = bool(scene_line) and bool(str(scene_token)) and str(scene_token) in source_prompt
-        name_used = bool(str(name_value)) and bool(str(name_token)) and str(name_token) in source_prompt
-        item_used = bool(str(item_value)) and bool(str(item_token)) and str(item_token) in source_prompt
-
         assembled = source_prompt
-        for token, value, used in (
-            (outfit_token_A, outfit_A, outfit_a_used),
-            (outfit_token_B, outfit_B, outfit_b_used),
-            (outfit_token_C, outfit_C, outfit_c_used),
-            (scene_token, scene_line, scene_used),
-        ):
-            if used:
-                assembled = _apply_token(assembled, token, value)
+        prepended_components: list[str] = []
+        appended_components: list[str] = []
+        component_results: dict[str, dict[str, Any]] = {}
+
+        component_specs = (
+            ("outfit_a", outfit_A, outfit_token_A, outfit_placement_A, ("OUTFIT_A", "OUTFIT")),
+            ("outfit_b", outfit_B, outfit_token_B, outfit_placement_B, ("OUTFIT_B",)),
+            ("outfit_c", outfit_C, outfit_token_C, outfit_placement_C, ("OUTFIT_C",)),
+            ("scene", scene_line, scene_token, scene_placement, ("SCENE",)),
+        )
+
+        for key, line, configured_token, raw_placement, standard_aliases in component_specs:
+            placement = str(raw_placement or "token").strip().lower()
+            if placement not in PLACEMENT_MODES:
+                placement = "token"
+            candidates = _token_candidates(configured_token, *standard_aliases)
+            matches = _find_aliases(assembled, candidates)
+            result = {
+                "used": False,
+                "placement": placement,
+                "action": "off" if placement == "off" else "waiting",
+                "token": str(configured_token),
+                "matched_tokens": matches,
+            }
+
+            if placement == "off":
+                if matches:
+                    assembled, removed, _ = _replace_aliases(assembled, candidates, "")
+                    assembled = _compact_removed_placeholder(assembled)
+                    result["matched_tokens"] = removed
+                    result["action"] = "remove"
+            elif not str(line).strip():
+                result["action"] = "missing_source"
+            elif placement == "token":
+                if matches:
+                    assembled, replaced, _ = _replace_aliases(assembled, candidates, line)
+                    result.update({"used": True, "action": "replace", "matched_tokens": replaced})
+                else:
+                    result["action"] = "missing_placeholder"
+            elif placement == "smart":
+                if matches:
+                    assembled, replaced, _ = _replace_aliases(assembled, candidates, line)
+                    result.update({"used": True, "action": "replace", "matched_tokens": replaced})
+                else:
+                    appended_components.append(str(line))
+                    result.update({"used": True, "action": "append"})
+            elif placement in {"append", "prepend"}:
+                if matches:
+                    assembled, removed, _ = _replace_aliases(assembled, candidates, "")
+                    assembled = _compact_removed_placeholder(assembled)
+                    result["matched_tokens"] = removed
+                if placement == "append":
+                    appended_components.append(str(line))
+                else:
+                    prepended_components.append(str(line))
+                result.update({"used": True, "action": placement})
+
+            component_results[key] = result
+
+        selected_trigger = str(trigger_override or main_trigger or "").strip()
+        trigger_candidates = _token_candidates(trigger_token, "TRIGGER")
+        trigger_matches = _find_aliases(assembled, trigger_candidates)
+        trigger_mode = str(trigger_placement or "off").strip().lower()
+        if trigger_mode not in PLACEMENT_MODES:
+            trigger_mode = "off"
+        trigger_result = {
+            "used": False, "placement": trigger_mode,
+            "action": "off" if trigger_mode == "off" else "waiting",
+            "token": str(trigger_token), "matched_tokens": trigger_matches,
+            "value": selected_trigger,
+            "source": "override" if str(trigger_override or "").strip() else "loader",
+        }
+        if trigger_mode == "off":
+            if trigger_matches:
+                assembled, removed, _ = _replace_aliases(assembled, trigger_candidates, "")
+                assembled = _compact_removed_placeholder(assembled)
+                trigger_result.update({"action": "remove", "matched_tokens": removed})
+        elif not selected_trigger:
+            trigger_result["action"] = "missing_source"
+        elif trigger_mode == "token":
+            if trigger_matches:
+                assembled, replaced, _ = _replace_aliases(assembled, trigger_candidates, selected_trigger)
+                trigger_result.update({"used": True, "action": "replace", "matched_tokens": replaced})
+            else:
+                trigger_result["action"] = "missing_placeholder"
+        elif trigger_mode == "smart":
+            if trigger_matches:
+                assembled, replaced, _ = _replace_aliases(assembled, trigger_candidates, selected_trigger)
+                trigger_result.update({"used": True, "action": "replace", "matched_tokens": replaced})
+            else:
+                prepended_components.append(selected_trigger)
+                trigger_result.update({"used": True, "action": "prepend"})
+        elif trigger_mode in {"append", "prepend"}:
+            if trigger_matches:
+                assembled, removed, _ = _replace_aliases(assembled, trigger_candidates, "")
+                assembled = _compact_removed_placeholder(assembled)
+                trigger_result["matched_tokens"] = removed
+            (appended_components if trigger_mode == "append" else prepended_components).append(selected_trigger)
+            trigger_result.update({"used": True, "action": trigger_mode})
+        component_results["trigger"] = trigger_result
+
+        assembled = _join_component_parts(
+            prefix_suffix_separator,
+            *prepended_components,
+            assembled,
+            *appended_components,
+        )
+
+        name_candidates = _token_candidates(name_token, "NAME")
+        item_candidates = _token_candidates(item_token, "ITEM")
+        name_matches = _find_aliases(assembled, name_candidates)
+        item_matches = _find_aliases(assembled, item_candidates)
+        name_used = bool(str(name_value)) and bool(name_matches)
+        item_used = bool(str(item_value)) and bool(item_matches)
         if name_used:
-            assembled = _apply_token(assembled, name_token, name_value)
+            assembled, name_matches, _ = _replace_aliases(assembled, name_candidates, name_value)
         if item_used:
-            assembled = _apply_token(assembled, item_token, item_value)
+            assembled, item_matches, _ = _replace_aliases(assembled, item_candidates, item_value)
+
+        outfit_a_used = bool(component_results["outfit_a"]["used"])
+        outfit_b_used = bool(component_results["outfit_b"]["used"])
+        outfit_c_used = bool(component_results["outfit_c"]["used"])
+        scene_used = bool(component_results["scene"]["used"])
 
         assembled = _join_prompt_parts(
             prefix_suffix_separator,
@@ -284,21 +492,24 @@ class SOPromptLogEngine:
         )
         final_prompt = _apply_cleanup_rules(assembled, cleanup_rules) if cleanup_enabled else assembled.strip()
 
-        def _log_meta(used, token, file_name, index, count, line):
-            if not used:
-                return {}
+        def _log_meta(result, file_name, index, count, line):
             data = {
-                "file": str(file_name),
-                "index": int(index),
-                "count": int(count),
-                "line": str(line),
+                "used": bool(result.get("used")),
+                "placement": str(result.get("placement", "token")),
+                "action": str(result.get("action", "waiting")),
+                "token": str(result.get("token", "")),
+                "matched_tokens": list(result.get("matched_tokens") or []),
             }
-            if token is not None:
-                data["token"] = str(token)
+            if str(file_name) != NO_FILE:
+                data["file"] = str(file_name)
+                data["count"] = int(count)
+            if result.get("used"):
+                data["index"] = int(index)
+                data["line"] = str(line)
             return data
 
         resolved_metadata = {
-            "schema_version": 2,
+            "schema_version": 4,
             "final_prompt": final_prompt,
             "source_prompt": source_prompt,
             "prompt": ({
@@ -311,12 +522,13 @@ class SOPromptLogEngine:
                 "source": "manual",
                 "manual_prompt": str(manual_prompt),
             }),
-            "outfit_a": _log_meta(outfit_a_used, outfit_token_A, outfit_log_file_A, outfit_index_A_resolved, outfit_count_A, outfit_A),
-            "outfit_b": _log_meta(outfit_b_used, outfit_token_B, outfit_log_file_B, outfit_index_B_resolved, outfit_count_B, outfit_B),
-            "outfit_c": _log_meta(outfit_c_used, outfit_token_C, outfit_log_file_C, outfit_index_C_resolved, outfit_count_C, outfit_C),
-            "scene": _log_meta(scene_used, scene_token, scene_log_file, scene_index_resolved, scene_count, scene_line),
-            "name": ({"token": str(name_token), "value": str(name_value)} if name_used else {}),
-            "item": ({"token": str(item_token), "value": str(item_value)} if item_used else {}),
+            "outfit_a": _log_meta(component_results["outfit_a"], outfit_log_file_A, outfit_index_A_resolved, outfit_count_A, outfit_A),
+            "outfit_b": _log_meta(component_results["outfit_b"], outfit_log_file_B, outfit_index_B_resolved, outfit_count_B, outfit_B),
+            "outfit_c": _log_meta(component_results["outfit_c"], outfit_log_file_C, outfit_index_C_resolved, outfit_count_C, outfit_C),
+            "scene": _log_meta(component_results["scene"], scene_log_file, scene_index_resolved, scene_count, scene_line),
+            "trigger": component_results["trigger"],
+            "name": {"used": name_used, "token": str(name_token), "value": str(name_value), "matched_tokens": name_matches},
+            "item": {"used": item_used, "token": str(item_token), "value": str(item_value), "matched_tokens": item_matches},
             "prefix": ({"enabled": True, "text": str(prefix_text)} if prefix_enabled and str(prefix_text).strip() else {}),
             "suffix": ({"enabled": True, "text": str(suffix_text)} if suffix_enabled and str(suffix_text).strip() else {}),
             "separator": str(prefix_suffix_separator),
@@ -360,7 +572,7 @@ class SOPromptLogEngine:
                 if node:
                     props = node.setdefault("properties", {})
                     props.update({
-                        "so_prompt_core_schema_version": 10,
+                        "so_prompt_core_schema_version": 12,
                         "so_saved_final_prompt": final_prompt,
                         "so_saved_source_prompt": source_prompt,
                         "so_saved_prompt_line": prompt_line if prompt_log_used else "",
@@ -368,6 +580,7 @@ class SOPromptLogEngine:
                         "so_saved_outfit_line_B": outfit_B if outfit_b_used else "",
                         "so_saved_outfit_line_C": outfit_C if outfit_c_used else "",
                         "so_saved_scene_line": scene_line if scene_used else "",
+                        "so_last_assembly_status": resolved_metadata,
                     })
 
         primary_line, primary_index, primary_count, primary_file = outfit_A, outfit_index_A_resolved, outfit_count_A, outfit_log_file_A
@@ -377,7 +590,10 @@ class SOPromptLogEngine:
             primary_line, primary_index, primary_count, primary_file = outfit_C, outfit_index_C_resolved, outfit_count_C, outfit_log_file_C
 
         return {
-            "ui": {"resolved_prompt": [final_prompt]},
+            "ui": {
+                "resolved_prompt": [final_prompt],
+                "assembly_status": [resolved_metadata],
+            },
             "result": (final_prompt,),
         }
 

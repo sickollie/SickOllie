@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 import json
@@ -11,6 +12,13 @@ from typing import Any
 import folder_paths
 import comfy.sd
 import comfy.utils
+
+from .civitai_trigger import (
+    detect_civitai_trigger,
+    detect_civitai_triggers,
+    normalize_trigger_text as _normalize_civitai_trigger_text,
+)
+from .trigger_resolution import choose_automatic, classify_candidate
 
 try:
     from aiohttp import web
@@ -50,8 +58,20 @@ _ANY_TYPE = _AnyType("*")
 NO_LORA = "None"
 ALL_FOLDERS = "[All LoRA folders]"
 ROOT_FOLDER = "[LoRA root only]"
+FAVORITES_FOLDER = "[★ Favorites]"
+UNTESTED_FOLDER = "[◌ Untested / Retest]"
 ALL_EPOCHS = "[All epochs]"
 NO_EPOCH_TAG = "[No epoch tag]"
+ALL_LIBRARY_STATES = "[All Library statuses]"
+FAVORITES_FILTER = "[★ Favorites]"
+TESTED_FILTER = "[✓ Tested]"
+UNTESTED_FILTER = "[◌ Untested / Retest]"
+LIBRARY_FILTERS = [ALL_LIBRARY_STATES, FAVORITES_FILTER, TESTED_FILTER, UNTESTED_FILTER]
+SORT_NAME = "Name"
+SORT_MOST_USED = "Most used"
+SORT_LEAST_USED = "Least used"
+SORT_RECENTLY_USED = "Recently used"
+LORA_SORT_MODES = [SORT_NAME, SORT_MOST_USED, SORT_LEAST_USED, SORT_RECENTLY_USED]
 CONTROL_MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"]
 
 DEFAULT_CLEAN_NAME_MODE = "auto:1"
@@ -96,7 +116,7 @@ def _folder_choices() -> list[str]:
         for index in range(1, len(parts) + 1):
             folders.add("/".join(parts[:index]))
 
-    return [ALL_FOLDERS, ROOT_FOLDER] + sorted(folders, key=lambda value: value.lower())
+    return [ALL_FOLDERS, ROOT_FOLDER, FAVORITES_FOLDER, UNTESTED_FOLDER] + sorted(folders, key=lambda value: value.lower())
 
 
 def _main_lora_choices() -> list[str]:
@@ -164,6 +184,9 @@ def _matches_folder(lora_name: str, folder_name: str, include_subfolders: bool) 
     if folder_name == ROOT_FOLDER:
         return parent == ""
 
+    if folder_name in {FAVORITES_FOLDER, UNTESTED_FOLDER}:
+        return True
+
     selected = _normalize_path(folder_name)
     if include_subfolders:
         return parent == selected or parent.startswith(selected + "/")
@@ -171,12 +194,71 @@ def _matches_folder(lora_name: str, folder_name: str, include_subfolders: bool) 
     return parent == selected
 
 
-def _folder_loras(folder_name: str, include_subfolders: bool) -> list[str]:
-    return [
-        name
-        for name in _all_lora_names()
+def _library_annotations() -> dict[str, dict[str, Any]]:
+    try:
+        from .solo_catalog import get_catalog
+        return {
+            os.path.abspath(str(item.get("current_path", ""))): {
+                "state": str(item.get("review_state") or "none"),
+                "use_count": max(0, int(item.get("use_count") or 0)),
+                "last_used_at": str(item.get("last_used_at") or ""),
+            }
+            for item in get_catalog().list_assets()
+        }
+    except Exception:
+        return {}
+
+
+def _lora_annotation(lora_name: str, annotations: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    getter = getattr(folder_paths, "get_full_path", None)
+    full_path = getter("loras", lora_name) if callable(getter) else None
+    if not full_path:
+        return {"state": "none", "use_count": 0, "last_used_at": ""}
+    return annotations.get(os.path.abspath(full_path), {"state": "none", "use_count": 0, "last_used_at": ""})
+
+
+def _folder_loras(
+    folder_name: str,
+    include_subfolders: bool,
+    library_filter: str = ALL_LIBRARY_STATES,
+    sort_mode: str = SORT_NAME,
+) -> list[str]:
+    # Virtual-folder values from v2.2 remain readable, but new Studio nodes use
+    # a separate Library filter so Favorite/Untested can be scoped to any real
+    # character, style, or project folder just like the Epoch filter.
+    legacy_filter = library_filter
+    if folder_name == FAVORITES_FOLDER:
+        legacy_filter = FAVORITES_FILTER
+    elif folder_name == UNTESTED_FOLDER:
+        legacy_filter = UNTESTED_FILTER
+
+    names = [
+        name for name in _all_lora_names()
         if _matches_folder(name, folder_name, include_subfolders)
     ]
+    annotations = _library_annotations()
+    if legacy_filter == FAVORITES_FILTER:
+        names = [name for name in names if _lora_annotation(name, annotations)["state"] == "favorite"]
+    elif legacy_filter == TESTED_FILTER:
+        names = [
+            name for name in names
+            if _lora_annotation(name, annotations)["use_count"] > 0
+            and _lora_annotation(name, annotations)["state"] != "retest"
+        ]
+    elif legacy_filter == UNTESTED_FILTER:
+        names = [
+            name for name in names
+            if _lora_annotation(name, annotations)["use_count"] == 0
+            or _lora_annotation(name, annotations)["state"] == "retest"
+        ]
+
+    if sort_mode == SORT_MOST_USED:
+        return sorted(names, key=lambda name: (-_lora_annotation(name, annotations)["use_count"], name.lower()))
+    if sort_mode == SORT_LEAST_USED:
+        return sorted(names, key=lambda name: (_lora_annotation(name, annotations)["use_count"], name.lower()))
+    if sort_mode == SORT_RECENTLY_USED:
+        return sorted(names, key=lambda name: (_lora_annotation(name, annotations)["last_used_at"], name.lower()), reverse=True)
+    return sorted(names, key=str.lower)
 
 def _stem_groups(stem: str) -> list[str]:
     """Split a LoRA stem while keeping a trailing epoch tag atomic."""
@@ -420,8 +502,7 @@ def _read_json_file(path: str) -> Any:
 
 
 def _normalize_trigger_text(value: Any) -> str:
-    text = str(value or "").strip()
-    return text
+    return _normalize_civitai_trigger_text(value)
 
 
 def _extract_word_from_entry(entry: Any) -> str:
@@ -617,16 +698,65 @@ def _detect_main_trigger(lora_name: str) -> tuple[str, str]:
 
     metadata = _load_safetensors_metadata(full_path)
 
+    # Prefer activation evidence carried by the file itself. If it has none,
+    # ask the Civitai fallback (sidecar first, then exact SHA-256 API match).
+    # ``modelspec.title`` is deliberately *not* an activation fallback: it is
+    # a model identity/filename hint and has produced false-positive triggers
+    # for files that explicitly declare no trigger at all.
     for resolver in (
         _trigger_from_explicit_metadata,
         _trigger_from_ss_tag_frequency,
-        _trigger_from_modelspec_title,
     ):
         trigger, source = resolver(metadata)
         if trigger:
             return trigger, source
 
+    trigger, source = detect_civitai_trigger(full_path)
+    # Civitai can legitimately list a whole weighted recipe as a "trigger".
+    # Keep that candidate available to the Studio Builder, but never inject it
+    # as ``main_trigger`` without an explicit user choice.
+    if trigger and classify_candidate(trigger, source).get("auto_select"):
+        return trigger, source
+
     return "", ""
+
+
+def _trigger_candidates(lora_name: str) -> list[dict[str, Any]]:
+    """Expose trigger evidence without confusing model titles for triggers."""
+
+    selected = str(lora_name or NO_LORA)
+    if not selected or selected == NO_LORA:
+        return []
+    try:
+        full_path = folder_paths.get_full_path_or_raise("loras", selected)
+    except Exception:
+        return []
+
+    metadata = _load_safetensors_metadata(full_path)
+    candidates: list[dict[str, Any]] = []
+    for resolver in (_trigger_from_explicit_metadata, _trigger_from_ss_tag_frequency):
+        trigger, source = resolver(metadata)
+        if trigger:
+            candidates.append(classify_candidate(trigger, source))
+
+    civitai_values, civitai_source = detect_civitai_triggers(full_path)
+    for value in civitai_values:
+        candidates.append(classify_candidate(value, civitai_source))
+
+    # A title is useful to explain a LoRA, but is never eligible for automatic
+    # activation. It remains visible to the user as an identity-only hint.
+    title, title_source = _trigger_from_modelspec_title(metadata)
+    if title:
+        candidates.append(classify_candidate(title, title_source))
+
+    unique: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for candidate in candidates:
+        key = (str(candidate.get("raw", "")).casefold(), str(candidate.get("source", "")))
+        if key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return unique
 
 
 if PromptServer is not None and web is not None:
@@ -634,12 +764,27 @@ if PromptServer is not None and web is not None:
     @PromptServer.instance.routes.get("/sickollie/studio/loader-core/main-trigger")
     async def so_loader_core_main_trigger(request):
         lora_name = request.rel_url.query.get("lora", "")
-        trigger, source = _detect_main_trigger(lora_name)
+        # Hashing a large LoRA and making the optional network request must not
+        # stall ComfyUI's aiohttp event loop.
+        trigger, source = await asyncio.to_thread(_detect_main_trigger, lora_name)
         return web.json_response(
             {
                 "ok": True,
                 "trigger": str(trigger),
                 "source": str(source),
+            }
+        )
+
+    @PromptServer.instance.routes.get("/sickollie/studio/loader-core/trigger-candidates")
+    async def so_loader_core_trigger_candidates(request):
+        lora_name = request.rel_url.query.get("lora", "")
+        candidates = await asyncio.to_thread(_trigger_candidates, lora_name)
+        selected = choose_automatic(candidates)
+        return web.json_response(
+            {
+                "ok": True,
+                "candidates": candidates,
+                "automatic": selected or {},
             }
         )
 
@@ -763,7 +908,7 @@ class FolderBatchLoraStackModelOnly:
             "include_subfolders": (
                 "BOOLEAN",
                 {
-                    "default": True,
+                    "default": False,
                     "tooltip": "Include nested LoRA folders beneath the selected folder.",
                 },
             ),
@@ -1260,6 +1405,23 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
                     "dynamicPrompts": False,
                 },
             ),
+            "library_filter": (
+                LIBRARY_FILTERS,
+                {
+                    "default": ALL_LIBRARY_STATES,
+                    "tooltip": (
+                        "Filter the selected real folder to Favorites, Tested, or Untested / Retest. "
+                        "The chosen folder scope stays active."
+                    ),
+                },
+            ),
+            "lora_sort": (
+                LORA_SORT_MODES,
+                {
+                    "default": SORT_NAME,
+                    "tooltip": "Sort the active folder pool by name or durable Library usage history.",
+                },
+            ),
         }
 
         return {
@@ -1378,6 +1540,8 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
         off_name: str,
         auto_clean_name: bool,
         cleanup_rules: str,
+        library_filter: str = ALL_LIBRARY_STATES,
+        lora_sort: str = SORT_NAME,
         prompt=None,
         extra_pnginfo=None,
         unique_id=None,
@@ -1422,7 +1586,7 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
 
         active_pool = [
             name
-            for name in _folder_loras(folder_name, include_subfolders)
+            for name in _folder_loras(folder_name, include_subfolders, library_filter, lora_sort)
             if _matches_epoch(name, epoch_filter)
         ]
 
@@ -1489,6 +1653,8 @@ class LoaderCoreEngine(FolderBatchLoraStackModelOnly):
                 for name in _folder_loras(
                     folder_name,
                     bool(include_subfolders),
+                    library_filter,
+                    lora_sort,
                 )
                 if _matches_epoch(name, epoch_filter)
             ]

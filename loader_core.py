@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 import json
@@ -11,6 +12,13 @@ from typing import Any
 import folder_paths
 import comfy.sd
 import comfy.utils
+
+from .civitai_trigger import (
+    detect_civitai_trigger,
+    detect_civitai_triggers,
+    normalize_trigger_text as _normalize_civitai_trigger_text,
+)
+from .trigger_resolution import choose_automatic, classify_candidate
 
 try:
     from aiohttp import web
@@ -420,8 +428,7 @@ def _read_json_file(path: str) -> Any:
 
 
 def _normalize_trigger_text(value: Any) -> str:
-    text = str(value or "").strip()
-    return text
+    return _normalize_civitai_trigger_text(value)
 
 
 def _extract_word_from_entry(entry: Any) -> str:
@@ -617,16 +624,46 @@ def _detect_main_trigger(lora_name: str) -> tuple[str, str]:
 
     metadata = _load_safetensors_metadata(full_path)
 
+    # Prefer activation evidence carried by the file itself. If it has none,
+    # ask the Civitai fallback (sidecar first, then exact SHA-256 API match).
+    # ``modelspec.title`` is deliberately *not* an activation fallback: it is
+    # a model identity/filename hint and has produced false-positive triggers
+    # for files that explicitly declare no trigger at all.
     for resolver in (
         _trigger_from_explicit_metadata,
         _trigger_from_ss_tag_frequency,
-        _trigger_from_modelspec_title,
     ):
         trigger, source = resolver(metadata)
         if trigger:
             return trigger, source
 
+    trigger, source = detect_civitai_trigger(full_path)
+    if trigger and classify_candidate(trigger, source).get("auto_select"):
+        return trigger, source
+
     return "", ""
+
+
+def _trigger_candidates(lora_name: str) -> list[dict[str, Any]]:
+    selected = str(lora_name or NO_LORA)
+    if not selected or selected == NO_LORA:
+        return []
+    try:
+        full_path = folder_paths.get_full_path_or_raise("loras", selected)
+    except Exception:
+        return []
+    metadata = _load_safetensors_metadata(full_path)
+    candidates: list[dict[str, Any]] = []
+    for resolver in (_trigger_from_explicit_metadata, _trigger_from_ss_tag_frequency):
+        trigger, source = resolver(metadata)
+        if trigger:
+            candidates.append(classify_candidate(trigger, source))
+    values, source = detect_civitai_triggers(full_path)
+    candidates.extend(classify_candidate(value, source) for value in values)
+    title, title_source = _trigger_from_modelspec_title(metadata)
+    if title:
+        candidates.append(classify_candidate(title, title_source))
+    return candidates
 
 
 if PromptServer is not None and web is not None:
@@ -634,7 +671,9 @@ if PromptServer is not None and web is not None:
     @PromptServer.instance.routes.get("/sickollie/loader-core/main-trigger")
     async def so_loader_core_main_trigger(request):
         lora_name = request.rel_url.query.get("lora", "")
-        trigger, source = _detect_main_trigger(lora_name)
+        # Hashing a large LoRA and making the optional network request must not
+        # stall ComfyUI's aiohttp event loop.
+        trigger, source = await asyncio.to_thread(_detect_main_trigger, lora_name)
         return web.json_response(
             {
                 "ok": True,
@@ -642,6 +681,13 @@ if PromptServer is not None and web is not None:
                 "source": str(source),
             }
         )
+
+    @PromptServer.instance.routes.get("/sickollie/loader-core/trigger-candidates")
+    async def so_loader_core_trigger_candidates(request):
+        candidates = await asyncio.to_thread(
+            _trigger_candidates, request.rel_url.query.get("lora", "")
+        )
+        return web.json_response({"ok": True, "candidates": candidates, "automatic": choose_automatic(candidates) or {}})
 
 
 def _extra_dict(extra_pnginfo: Any) -> dict | None:

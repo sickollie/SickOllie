@@ -571,7 +571,7 @@ function displayTriggerValue(value) {
 async function fetchMainTriggerFromServer(mainValue) {
     const value = String(mainValue ?? "").trim();
     if (!value || value === NONE) {
-        return "";
+        return { trigger: "", source: "" };
     }
 
     const url = `/sickollie/loader-core/main-trigger?lora=${encodeURIComponent(value)}`;
@@ -581,7 +581,10 @@ async function fetchMainTriggerFromServer(mainValue) {
     }
 
     const payload = await response.json();
-    return String(payload?.trigger ?? "").trim();
+    return {
+        trigger: String(payload?.trigger ?? "").trim(),
+        source: String(payload?.source ?? "").trim(),
+    };
 }
 
 function updateTriggerButton(node) {
@@ -647,6 +650,7 @@ function ensureTriggerButton(node) {
 async function refreshMainTrigger(node, force = false) {
     const mainValue = String(widget(node, "main_lora")?.value ?? NONE);
     node.__soMainTrigger = "";
+    node.__soMainTriggerSource = "";
 
     if (!mainValue || mainValue === NONE) {
         updateTriggerButton(node);
@@ -654,13 +658,16 @@ async function refreshMainTrigger(node, force = false) {
     }
 
     try {
-        node.__soMainTrigger = await fetchMainTriggerFromServer(mainValue);
+        const resolved = await fetchMainTriggerFromServer(mainValue);
+        node.__soMainTrigger = resolved.trigger;
+        node.__soMainTriggerSource = resolved.source;
     } catch (error) {
         console.warn(
-            "[Sick Ollie Loader Core] Could not read main LoRA modelspec.title",
+            "[Sick Ollie Loader Core] Could not resolve the main LoRA trigger",
             error,
         );
         node.__soMainTrigger = "";
+        node.__soMainTriggerSource = "";
     }
 
     updateTriggerButton(node);
