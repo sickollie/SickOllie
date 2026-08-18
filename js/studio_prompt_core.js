@@ -1,10 +1,18 @@
 import { app } from "../../../scripts/app.js";
+import {
+    STUDIO_LAYOUT,
+    STUDIO_THEME,
+    applyStudioNodeColors,
+    drawStudioChrome,
+    drawStudioSectionFrame,
+} from "./studio_theme.js";
 
 const TARGET = "SOPromptLogEngineStudio";
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 13;
 const NO_FILE = "[None]";
 const LARGE_RANDOM_MAX = 1000000000;
 const MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"];
+const PLACEMENTS = ["smart", "token", "append", "prepend", "off"];
 
 const DEFAULT_CLEANUP = String.raw`\?\[|\]
 \\?[()]
@@ -17,18 +25,22 @@ const DEFAULTS = {
     prompt_mode: "increment",
     prompt_index: 0,
     outfit_token_A: "OUTFIT_A",
+    outfit_placement_A: "smart",
     outfit_log_file_A: NO_FILE,
     outfit_mode_A: "randomize",
     outfit_index_A: 0,
     outfit_token_B: "OUTFIT_B",
+    outfit_placement_B: "smart",
     outfit_log_file_B: NO_FILE,
     outfit_mode_B: "randomize",
     outfit_index_B: 0,
     outfit_token_C: "OUTFIT_C",
+    outfit_placement_C: "smart",
     outfit_log_file_C: NO_FILE,
     outfit_mode_C: "randomize",
     outfit_index_C: 0,
     scene_token: "SCENE",
+    scene_placement: "smart",
     scene_log_file: NO_FILE,
     scene_mode: "randomize",
     scene_index: 0,
@@ -44,9 +56,21 @@ const DEFAULTS = {
     cleanup_enabled: true,
     cleanup_rules: DEFAULT_CLEANUP,
     saved_prompt: "",
+    trigger_token: "TRIGGER",
+    trigger_placement: "off",
+    trigger_override: "",
 };
 
 const CANONICAL_NAMES = Object.keys(DEFAULTS);
+
+const LEGACY_V10_NAMES = CANONICAL_NAMES.filter((name) => !name.includes("_placement") && !name.startsWith("trigger_"));
+const V11_NAMES = CANONICAL_NAMES.filter((name) => !name.startsWith("trigger_"));
+const LEGACY_PLACEMENTS = {
+    outfit_placement_A: "token",
+    outfit_placement_B: "token",
+    outfit_placement_C: "token",
+    scene_placement: "token",
+};
 
 const COPY_BUTTONS = [
     ["outfit_A", "outfit_token_A", "OUTFIT_A"],
@@ -57,6 +81,21 @@ const COPY_BUTTONS = [
     ["item", "item_token", "ITEM"],
 ];
 
+const PLACEMENT_LABELS = {
+    smart: "Auto · placeholder or end",
+    token: "Placeholder only",
+    append: "End of prompt",
+    prepend: "Beginning of prompt",
+    off: "Off",
+};
+const PLACEMENT_SHORT_LABELS = {
+    smart: "Auto",
+    token: "Placeholder",
+    append: "End",
+    prepend: "Beginning",
+    off: "Off",
+};
+
 const TEXT_HEIGHTS = {
     manual_prompt: 520,
     prefix_text: 60,
@@ -66,7 +105,7 @@ const TEXT_HEIGHTS = {
 };
 
 function widget(node, name) {
-    return node.widgets?.find((item) => item.name === name);
+    return node?.widgets?.find((item) => item.name === name);
 }
 
 function readValues(comboWidget) {
@@ -99,6 +138,10 @@ function canonicalValues(overrides = {}) {
     );
 }
 
+function legacyCanonicalValues(overrides = {}) {
+    return canonicalValues({ ...LEGACY_PLACEMENTS, ...overrides });
+}
+
 function withSchema(info, widgetsValues) {
     return {
         ...info,
@@ -112,7 +155,7 @@ function withSchema(info, widgetsValues) {
 
 function migrateLegacy30(info, values) {
     const sharedAffixEnabled = Boolean(values[22]);
-    return withSchema(info, canonicalValues({
+    return withSchema(info, legacyCanonicalValues({
         prompt_source: values[0],
         manual_prompt: values[1],
         prompt_log_file: values[2],
@@ -143,7 +186,7 @@ function migrateLegacy30(info, values) {
 
 function migrateDev9DisplayOrder(info, values) {
     const sharedAffixEnabled = Boolean(values[25]);
-    return withSchema(info, canonicalValues({
+    return withSchema(info, legacyCanonicalValues({
         prompt_source: values[0],
         manual_prompt: values[1],
         prompt_log_file: values[2],
@@ -182,7 +225,7 @@ function migrateDev9DisplayOrder(info, values) {
 
 function migrateDev9BackendOrder(info, values) {
     const sharedAffixEnabled = Boolean(values[22]);
-    return withSchema(info, canonicalValues({
+    return withSchema(info, legacyCanonicalValues({
         prompt_source: values[0],
         manual_prompt: values[1],
         prompt_log_file: values[2],
@@ -221,7 +264,7 @@ function migrateDev9BackendOrder(info, values) {
 
 function migrateDev9ButtonOrder(info, values) {
     const sharedAffixEnabled = Boolean(values[31]);
-    return withSchema(info, canonicalValues({
+    return withSchema(info, legacyCanonicalValues({
         prompt_source: values[0],
         manual_prompt: values[1],
         prompt_log_file: values[2],
@@ -269,6 +312,20 @@ function migratePromptWorkflow(info) {
         return info;
     }
 
+    if (values.length === LEGACY_V10_NAMES.length) {
+        const restored = {};
+        LEGACY_V10_NAMES.forEach((name, index) => { restored[name] = values[index]; });
+        return withSchema(info, legacyCanonicalValues(restored));
+    }
+
+    // v11 was the first Studio placement build. v12 only appends the three
+    // trigger widgets, so preserve every existing value and fill those safely.
+    if (values.length === V11_NAMES.length) {
+        const restored = {};
+        V11_NAMES.forEach((name, index) => { restored[name] = values[index]; });
+        return withSchema(info, canonicalValues(restored));
+    }
+
     if (values.length === 30) {
         return migrateLegacy30(info, values);
     }
@@ -299,7 +356,7 @@ function migratePromptWorkflow(info) {
             "[Sick Ollie Prompt Core] A dev9 workflow appears to have been saved " +
             "after its widgets shifted. Restoring safe defaults for the new channels.",
         );
-        return withSchema(info, canonicalValues({
+        return withSchema(info, legacyCanonicalValues({
             prompt_source: values[0] ?? "manual",
             manual_prompt: values[1] ?? "",
             prompt_log_file: values[2] ?? NO_FILE,
@@ -310,7 +367,19 @@ function migratePromptWorkflow(info) {
     }
 
     if (values.length === CANONICAL_NAMES.length) {
-        return withSchema(info, values);
+        const upgraded = [...values];
+        // v12's Trigger Builder could save an override while leaving placement
+        // stuck at Off because the builder had no reachable placement control.
+        // A non-empty override in that exact legacy state is therefore treated
+        // as the user's attempted trigger selection and upgraded to Smart.
+        if (Number(info?.properties?.so_prompt_core_schema_version || 0) <= 12) {
+            const placementIndex = CANONICAL_NAMES.indexOf("trigger_placement");
+            const overrideIndex = CANONICAL_NAMES.indexOf("trigger_override");
+            if (String(upgraded[placementIndex] ?? "off") === "off" && String(upgraded[overrideIndex] ?? "").trim()) {
+                upgraded[placementIndex] = "smart";
+            }
+        }
+        return withSchema(info, upgraded);
     }
 
     return info;
@@ -409,6 +478,63 @@ function streamTokenWidget(base) {
     if (base === "outfit_C") return "outfit_token_C";
     if (base === "scene") return "scene_token";
     return "";
+}
+
+function streamPlacementWidget(base) {
+    if (base === "outfit_A") return "outfit_placement_A";
+    if (base === "outfit_B") return "outfit_placement_B";
+    if (base === "outfit_C") return "outfit_placement_C";
+    if (base === "scene") return "scene_placement";
+    return "";
+}
+
+function tokenCandidates(configuredToken, ...standardAliases) {
+    const values = [];
+    const add = (raw) => {
+        const token = String(raw ?? "").trim();
+        if (!token) return;
+        if (token.startsWith("{") && token.endsWith("}") && token.length > 2) {
+            const bare = token.slice(1, -1).trim();
+            for (const value of [token, bare]) if (value && !values.includes(value)) values.push(value);
+            return;
+        }
+        for (const value of [`{${token}}`, token]) if (!values.includes(value)) values.push(value);
+    };
+    add(configuredToken);
+    standardAliases.forEach(add);
+    return values.sort((a, b) => b.length - a.length);
+}
+
+function streamTokenCandidates(node, base) {
+    const configured = String(widget(node, streamTokenWidget(base))?.value ?? "");
+    if (base === "outfit_A") return tokenCandidates(configured, "OUTFIT_A", "OUTFIT");
+    if (base === "outfit_B") return tokenCandidates(configured, "OUTFIT_B");
+    if (base === "outfit_C") return tokenCandidates(configured, "OUTFIT_C");
+    if (base === "scene") return tokenCandidates(configured, "SCENE");
+    return [];
+}
+
+function aliasPattern(candidates) {
+    const escape = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const wordEdge = /[A-Za-z0-9_]/;
+    const parts = (candidates || []).filter(Boolean).map((candidate) => {
+        const token = String(candidate);
+        const left = wordEdge.test(token[0]) ? "(?<![A-Za-z0-9_])" : "";
+        const right = wordEdge.test(token[token.length - 1]) ? "(?![A-Za-z0-9_])" : "";
+        return `${left}(?:${escape(token)})${right}`;
+    });
+    try { return parts.length ? new RegExp(parts.join("|"), "g") : null; }
+    catch (error) { return null; }
+}
+
+function aliasesInText(text, candidates) {
+    const pattern = aliasPattern(candidates);
+    if (!pattern) return [];
+    const found = [];
+    for (const match of String(text ?? "").matchAll(pattern)) {
+        if (match[0] && !found.includes(match[0])) found.push(match[0]);
+    }
+    return found;
 }
 
 function normalizedIndex(value, count) {
@@ -530,11 +656,58 @@ function activeSourceTemplate(node) {
     return String(lines[index] ?? "");
 }
 
+function streamAssemblyState(node, base) {
+    if (base === "prompt") {
+        const used = String(widget(node, "prompt_source")?.value ?? "manual") === "log";
+        return { used, action: used ? "log" : "manual", label: used ? "Prompt Log" : "Manual", tone: "active", matches: [] };
+    }
+    const [fileName] = streamConfig(base);
+    const placementName = streamPlacementWidget(base);
+    const placement = String(widget(node, placementName)?.value ?? "token");
+    const fileValue = String(widget(node, fileName)?.value ?? NO_FILE);
+    const fileSelected = Boolean(fileValue && fileValue !== NO_FILE);
+    const lines = node.__soLogLines?.[base] || [];
+    const loadedFile = String(node.__soLogLineFiles?.[base] ?? "");
+    const loading = fileSelected && loadedFile !== fileValue;
+    const matches = aliasesInText(activeSourceTemplate(node), streamTokenCandidates(node, base));
+    const firstMatch = matches[0] || "";
+
+    if (placement === "off") {
+        return {
+            used: false,
+            action: matches.length ? "remove" : "off",
+            label: matches.length ? `Off · removes ${firstMatch}` : "Off",
+            tone: matches.length ? "warning" : "off",
+            matches,
+        };
+    }
+    if (!fileSelected) {
+        return {
+            used: false,
+            action: "missing_source",
+            label: firstMatch ? `${firstMatch} found · choose log` : "Choose a log",
+            tone: "warning",
+            matches,
+        };
+    }
+    if (loading) return { used: false, action: "loading", label: "Loading log…", tone: "warning", matches };
+    if (!lines.length) return { used: false, action: "missing_source", label: "Log has no usable lines", tone: "warning", matches };
+    if (placement === "token") {
+        return matches.length
+            ? { used: true, action: "replace", label: `Replace ${firstMatch}`, tone: "active", matches }
+            : { used: false, action: "missing_placeholder", label: "Waiting for placeholder", tone: "warning", matches };
+    }
+    if (placement === "smart") {
+        return matches.length
+            ? { used: true, action: "replace", label: `Auto · replace ${firstMatch}`, tone: "active", matches }
+            : { used: true, action: "append", label: "Auto · append", tone: "active", matches };
+    }
+    if (placement === "prepend") return { used: true, action: "prepend", label: "Prepend", tone: "active", matches };
+    return { used: true, action: "append", label: "Append", tone: "active", matches };
+}
+
 function shuffleStreamIsUsed(node, base) {
-    if (base === "prompt") return String(widget(node, "prompt_source")?.value ?? "manual") === "log";
-    const tokenWidget = streamTokenWidget(base);
-    const token = String(widget(node, tokenWidget)?.value ?? "");
-    return Boolean(token) && activeSourceTemplate(node).includes(token);
+    return streamAssemblyState(node, base).used;
 }
 
 function previewChoice(index, line) {
@@ -675,6 +848,53 @@ function allLogFiles(node, base) {
         node.__soAllLogFiles[base] = readValues(widget(node, fileName));
     }
     return node.__soAllLogFiles[base] || [];
+}
+
+function healMissingLogSelection(node, base) {
+    const [fileName, , indexName] = streamConfig(base);
+    const fileWidget = widget(node, fileName);
+    if (!fileWidget) return false;
+    const current = String(fileWidget.value ?? NO_FILE);
+    if (!current || current === NO_FILE) return false;
+
+    // Combo choices come from the backend's current filesystem scan. A stale
+    // workflow/image can legitimately reference a file that was renamed, moved,
+    // or deleted. Do not let that dormant value poison Comfy's queue validation.
+    const available = readValues(fileWidget).map((value) => String(value));
+    if (!available.length || available.includes(current)) return false;
+
+    console.warn(`[Sick Ollie Prompt Core] Missing ${base} log was cleared: ${current}`);
+    fileWidget.value = NO_FILE;
+    const indexWidget = widget(node, indexName);
+    if (indexWidget) indexWidget.value = 0;
+
+    node.__soLogLines = node.__soLogLines || {};
+    node.__soLogLineFiles = node.__soLogLineFiles || {};
+    node.__soLogLines[base] = [];
+    node.__soLogLineFiles[base] = NO_FILE;
+    resetShuffleBag(node, base);
+
+    // If the missing file was the active Prompt Source, fall back to Manual so
+    // an old image cannot leave the workflow pointing at a source that no longer
+    // exists. The curated/manual source prompt remains intact.
+    if (base === "prompt" && String(widget(node, "prompt_source")?.value ?? "manual") === "log") {
+        const sourceWidget = widget(node, "prompt_source");
+        if (sourceWidget) sourceWidget.value = "manual";
+    }
+
+    node.__soMissingLogsCleared = node.__soMissingLogsCleared || [];
+    node.__soMissingLogsCleared.push({ base, file: current });
+    return true;
+}
+
+function healMissingLogSelections(node) {
+    let changed = false;
+    for (const base of STREAM_BASES) changed = healMissingLogSelection(node, base) || changed;
+    if (changed) {
+        node.__soAllLogFiles = {};
+        node.setDirtyCanvas?.(true, true);
+    }
+    return changed;
 }
 
 function directLogFiles(node, base, folder) {
@@ -1002,6 +1222,7 @@ function bindLogControls(node) {
             const originalCallback = fileWidget.callback;
             fileWidget.callback = function (...args) {
                 const result = originalCallback?.apply(this, args);
+                healMissingLogSelection(node, base);
                 refreshStreamLines(node, base, true);
                 return result;
             };
@@ -1013,6 +1234,18 @@ function bindLogControls(node) {
             modeWidget.callback = function (...args) {
                 const result = originalCallback?.apply(this, args);
                 resetShuffleBag(node, base);
+                return result;
+            };
+        }
+        const placementName = streamPlacementWidget(base);
+        const placementWidget = placementName ? widget(node, placementName) : null;
+        if (placementWidget && !placementWidget.__soPlacementBound) {
+            placementWidget.__soPlacementBound = true;
+            const originalCallback = placementWidget.callback;
+            placementWidget.callback = function (...args) {
+                const result = originalCallback?.apply(this, args);
+                resetShuffleBag(node, base);
+                node.setDirtyCanvas?.(true, true);
                 return result;
             };
         }
@@ -1032,6 +1265,9 @@ function advanceStream(node, base) {
     const [fileName, modeName, indexName] = streamConfig(base);
     if (base === "prompt" && String(widget(node, "prompt_source")?.value) !== "log") return;
     if (String(widget(node, fileName)?.value ?? NO_FILE) === NO_FILE) return;
+    // Components advance only when they actually participate. Smart append,
+    // explicit append/prepend, and matched placeholders all count as used.
+    if (base !== "prompt" && !shuffleStreamIsUsed(node, base)) return;
 
     const mode = String(widget(node, modeName)?.value ?? "fixed");
     const indexWidget = widget(node, indexName);
@@ -1042,9 +1278,6 @@ function advanceStream(node, base) {
     let next = current;
 
     if (mode === "shuffle") {
-        // Do not consume outfit/scene entries on generations where their token
-        // never participated in the source prompt.
-        if (!shuffleStreamIsUsed(node, base)) return;
         const lines = node.__soLogLines?.[base] || [];
         if (!lines.length) return;
         next = nextShuffledIndex(
@@ -1083,35 +1316,55 @@ function bindQueueProgression(node) {
 }
 
 
-const PROMPT_DASH_VERSION = 3;
-const PROMPT_DASH_MIN_WIDTH = 800;
-const PROMPT_DASH_PAD = 12;
-const PROMPT_DASH_GAP = 8;
-const PROMPT_DASH_ROW_H = 32;
-const PROMPT_DASH_COLLAPSED_H = 1025;
-const PROMPT_DASH_EXPANDED_H = 1105;
+const PROMPT_DASH_VERSION = 7;
+const PROMPT_DASH_MIN_WIDTH = STUDIO_LAYOUT.minWidth;
+const PROMPT_DASH_PAD = STUDIO_LAYOUT.pad;
+const PROMPT_DASH_GAP = STUDIO_LAYOUT.gap;
+const PROMPT_DASH_ROW_H = STUDIO_LAYOUT.rowHeight;
+const PROMPT_SECTION_GAP = STUDIO_LAYOUT.sectionGap + 8;
+const PROMPT_LOG_BOTTOM_PAD = 24;
+const PROMPT_SOURCE_FRAME_BOTTOM_GAP = 6;
+const PROMPT_DASH_COLLAPSED_H = 1275;
+const PROMPT_DASH_EXPANDED_H = 1365;
 const SO_CMYKG = {
-    cyan: "#35d7ff",
-    magenta: "#ff4ab8",
-    yellow: "#f6e65a",
-    green: "#6ee7a2",
-    ink: "#0d0d11",
-    panel: "rgba(22,22,26,.98)",
-    row: "rgba(38,38,43,.98)",
-    outline: "rgba(138,138,151,.40)",
-    label: "#9b9ba6",
-    text: "#f0f0f3",
+    cyan: STUDIO_THEME.cyan,
+    magenta: STUDIO_THEME.magenta,
+    yellow: STUDIO_THEME.yellow,
+    green: STUDIO_THEME.green,
+    ink: STUDIO_THEME.ink,
+    panel: STUDIO_THEME.panel,
+    row: STUDIO_THEME.row,
+    outline: STUDIO_THEME.outline,
+    label: STUDIO_THEME.label,
+    text: STUDIO_THEME.text,
 };
 
 function promptDashTop(node) {
-    return 44;
+    return STUDIO_LAYOUT.headerHeight;
+}
+
+function layoutPromptOutputSockets(node) {
+    const right = Number(node.size?.[0] || PROMPT_DASH_MIN_WIDTH);
+    for (let index = 0; index < (node.outputs?.length || 0); index++) {
+        node.outputs[index].pos = [right, STUDIO_LAYOUT.socketStart + index * STUDIO_LAYOUT.socketStep];
+    }
+}
+
+function promptOutputAnchor(node, slotIndex) {
+    const output = node.outputs?.[Number(slotIndex)];
+    if (!output) return null;
+    layoutPromptOutputSockets(node);
+    const y = Number(output.pos?.[1]);
+    if (!Number.isFinite(y)) return null;
+    return { x: Number(node.size?.[0] || PROMPT_DASH_MIN_WIDTH), y };
 }
 
 function promptOutputBottom(node) {
+    layoutPromptOutputSockets(node);
     const outputCount = node.outputs?.length || 0;
-    // Keep the classic output sockets readable, but tighten their reserved area
-    // slightly so the dashboard can begin sooner.
-    return Math.max(44, 32 + outputCount * 18 + 8);
+    return outputCount
+        ? STUDIO_LAYOUT.socketStart + outputCount * STUDIO_LAYOUT.socketStep + 5
+        : STUDIO_LAYOUT.headerHeight;
 }
 
 const PROMPT_VISIBLE_INPUT_NAMES = [
@@ -1119,6 +1372,7 @@ const PROMPT_VISIBLE_INPUT_NAMES = [
     "item_value",
     "prefix_text",
     "suffix_text",
+    "main_trigger",
 ];
 
 function promptInputIsConnected(input) {
@@ -1136,16 +1390,26 @@ function promptShouldExposeInput(input) {
 function promptExternalInputs(node) {
     return (node.inputs || []).filter((input) => {
         const name = promptInputName(input);
-        return Boolean(name) && CANONICAL_NAMES.includes(name) && promptShouldExposeInput(input);
+        return Boolean(name) && (CANONICAL_NAMES.includes(name) || name === "main_trigger") && promptShouldExposeInput(input);
     });
 }
 
-function promptExternalInputLabel(name) {
+function configuredPlaceholderLabel(node, widgetName, fallback) {
+    const configured = String(widget(node, widgetName)?.value ?? fallback).trim() || fallback;
+    if (configured.startsWith("{") && configured.endsWith("}")) {
+        return configured.slice(1, -1).trim() || fallback;
+    }
+    return configured;
+}
+
+function promptExternalInputLabel(node, name) {
+    const itemLabel = configuredPlaceholderLabel(node, "item_token", "ITEM");
     const labels = {
         name_value: "NAME value",
-        item_value: "ITEM value",
+        item_value: `${itemLabel} value`,
         prefix_text: "Prefix text",
         suffix_text: "Suffix text",
+        main_trigger: "TRIGGER value",
     };
     return labels[name] || String(name || "Input").replaceAll("_", " ");
 }
@@ -1153,15 +1417,20 @@ function promptExternalInputLabel(name) {
 function layoutPromptInputSockets(node) {
     node.__soPromptInputAnchors = {};
     node.__soPromptExternalInputAnchors = {};
-    let y = 48;
+    let y = STUDIO_LAYOUT.socketStart;
     for (const input of node.inputs || []) {
         const name = promptInputName(input);
-        if (!name || !CANONICAL_NAMES.includes(name)) continue;
+        if (!name || !(CANONICAL_NAMES.includes(name) || name === "main_trigger")) continue;
         if (promptShouldExposeInput(input)) {
             node.__soPromptInputAnchors[name] = y;
             node.__soPromptExternalInputAnchors[name] = y;
             input.pos = [0, y];
-            input.label = promptExternalInputLabel(name);
+            // main_trigger is a true forceInput socket, so LiteGraph draws its
+            // native label in addition to our dashboard label. Suppress only that
+            // native text to avoid the doubled raw "main_trigger" / dashboard label ghosting.
+            // A single space is intentional: LiteGraph falls back to input.name when
+            // label is an empty string, which is why main_trigger still appeared.
+            input.label = name === "main_trigger" ? " " : promptExternalInputLabel(node, name);
             input.color_on = SO_CMYKG.green;
             input.color_off = "#7f8792";
             y += 21;
@@ -1178,28 +1447,37 @@ function layoutPromptInputSockets(node) {
 
 function promptInputSocketsBottom(node) {
     const count = promptExternalInputs(node).length;
-    return count ? 48 + count * 21 + 5 : 44;
+    return count
+        ? STUDIO_LAYOUT.socketStart + count * STUDIO_LAYOUT.socketStep + 5
+        : STUDIO_LAYOUT.headerHeight;
 }
 
 function promptSourceTop(node) {
-    return Math.max(promptOutputBottom(node), promptInputSocketsBottom(node)) + 8;
+    return Math.max(promptOutputBottom(node), promptInputSocketsBottom(node)) + STUDIO_LAYOUT.socketGap;
 }
 
 function promptSourceHeight(node) {
     const sourceMode = String(widget(node, "prompt_source")?.value ?? "manual");
-    return sourceMode === "log" ? 239 : 201;
+    // Keep a comfortable cyan gutter beneath the Prompt Log Mode/Index row.
+    return sourceMode === "log" ? 255 : 205;
 }
 
 function promptLowerStart(node) {
     return Math.max(
-        promptSourceTop(node) + promptSourceHeight(node) + 8,
-        promptOutputBottom(node) + 8,
+        promptSourceTop(node) + promptSourceHeight(node) + PROMPT_SECTION_GAP,
+        promptOutputBottom(node) + PROMPT_SECTION_GAP,
     );
 }
 
 function promptLowerHeight(node) {
-    // Everything from OUTFITS + SCENE through the copy-resolved button.
-    return 774 + (node.properties?.so_prompt_dashboard_advanced ? 82 : 0);
+    // Everything from Prompt Assembly through the copy-resolved button.
+    return 1054 + (node.properties?.so_prompt_dashboard_advanced ? 90 : 0);
+}
+
+function promptSourceFrameGeometry(sourceTop, lowerTop) {
+    const top = sourceTop - 5;
+    const bottom = lowerTop - PROMPT_SOURCE_FRAME_BOTTOM_GAP;
+    return { top, bottom, height: Math.max(20, bottom - top) };
 }
 
 function promptDashHeight(node) {
@@ -1225,12 +1503,8 @@ function promptRoundRect(ctx, x, y, w, h, radius = 8, fill = null, stroke = null
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth; ctx.stroke(); }
 }
 
-function promptGradientFrame(ctx, x, y, w, h, radius = 11, alpha = .42) {
-    ctx.save();
-    const g = ctx.createLinearGradient(x, y, x + w, y + h);
-    g.addColorStop(0, SO_CMYKG.cyan); g.addColorStop(.34, SO_CMYKG.magenta);
-    g.addColorStop(.67, SO_CMYKG.yellow); g.addColorStop(1, SO_CMYKG.green);
-    ctx.globalAlpha = alpha; promptRoundRect(ctx, x, y, w, h, radius, null, g, 1.15); ctx.restore();
+function promptGradientFrame(ctx, x, y, w, h, radius = 11, alpha = .42, accent = SO_CMYKG.magenta) {
+    drawStudioSectionFrame(ctx, x, y, w, h, accent, radius, alpha);
 }
 
 function promptDashText(ctx, text, x, y, options = {}) {
@@ -1295,7 +1569,221 @@ function promptToggleRow(ctx, x, y, w, h, label, enabled, color = SO_CMYKG.green
     ctx.fill();
 }
 
-function promptTextCard(ctx, x, y, w, h, title, text, color, emptyText = "Nothing to display") {
+function promptConnectedSource(node, inputName) {
+    const input = node.inputs?.find((slot) => promptInputName(slot) === String(inputName));
+    if (!input || !promptInputIsConnected(input)) return null;
+    const reference = input.link ?? (Array.isArray(input.links) ? input.links[0] : null);
+    const link = reference && typeof reference === "object" ? reference : app.graph?.links?.[reference];
+    if (!link) return { label: "Connected input", node: null, output: "" };
+    const origin = app.graph?.getNodeById?.(link.origin_id) || app.graph?._nodes_by_id?.[link.origin_id];
+    const output = origin?.outputs?.[Number(link.origin_slot)];
+    const nodeLabel = String(origin?.title || origin?.constructor?.title || origin?.type || "Upstream node");
+    const outputLabel = String(output?.label || output?.name || `output ${Number(link.origin_slot) + 1}`);
+    const outputName = String(output?.name || output?.label || "");
+    return {
+        label: `${nodeLabel} → ${outputLabel}`,
+        node: origin,
+        output: outputLabel,
+        outputName,
+        outputIndex: Number(link.origin_slot),
+    };
+}
+
+function promptConnectedLiveValue(connection) {
+    const origin = connection?.node;
+    const values = origin?.__soLiveOutputs;
+    if (!values || typeof values !== "object") return undefined;
+    const keys = [connection?.outputName, connection?.output]
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean);
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(values, key)) return values[key];
+    }
+    return undefined;
+}
+
+function promptConnectedTextState(node, inputName, metadataKey) {
+    const connection = promptConnectedSource(node, inputName);
+    const liveValue = promptConnectedLiveValue(connection);
+    const lastText = node.__soLastAssembly?.[metadataKey]?.text;
+    return {
+        connection,
+        connected: Boolean(connection),
+        display: connection
+            ? `${connection.label}${liveValue !== undefined
+                ? ` · ${String(liveValue)}`
+                : (lastText ? ` · ${String(lastText)}` : "")}`
+            : String(widget(node, inputName)?.value ?? ""),
+    };
+}
+
+function pulseConnectedSource(node, inputName) {
+    const source = promptConnectedSource(node, inputName)?.node;
+    if (!source) return;
+    source.__soAttentionUntil = Date.now() + 900;
+    source.setDirtyCanvas?.(true, true);
+    node.setDirtyCanvas?.(true, true);
+    clearTimeout(source.__soAttentionTimer);
+    source.__soAttentionTimer = setTimeout(() => source.setDirtyCanvas?.(true, true), 940);
+}
+
+function substitutionState(node, kind) {
+    const isName = kind === "name";
+    const tokenName = isName ? "name_token" : "item_token";
+    const valueName = isName ? "name_value" : "item_value";
+    const standard = isName ? "NAME" : "ITEM";
+    const token = String(widget(node, tokenName)?.value ?? standard);
+    const matches = aliasesInText(activeSourceTemplate(node), tokenCandidates(token, standard));
+    const connection = promptConnectedSource(node, valueName);
+    const liveValue = promptConnectedLiveValue(connection);
+    const lastValue = node.__soLastAssembly?.[kind]?.value;
+    const value = connection
+        ? (liveValue !== undefined
+            ? String(liveValue)
+            : (lastValue != null ? String(lastValue) : ""))
+        : String(widget(node, valueName)?.value ?? "");
+    if (!value && !connection) return { used: false, tone: "warning", label: "Enter a value", token, value, connection, matches };
+    if (!matches.length) return { used: false, tone: "warning", label: "Not placed in prompt", token, value, connection, matches };
+    return {
+        used: true,
+        tone: "active",
+        label: connection ? `Linked · replace ${matches[0]}` : `Replace ${matches[0]}`,
+        token,
+        value,
+        connection,
+        matches,
+    };
+}
+
+function connectedTriggerLora(node) {
+    const connection = promptConnectedSource(node, "main_trigger");
+    return String(widget(connection?.node, "main_lora")?.value ?? "").trim();
+}
+
+function syncTriggerOverrideScope(node) {
+    const target = widget(node, "trigger_override");
+    const override = String(target?.value ?? "").trim();
+    node.properties = node.properties || {};
+    if (!override) {
+        delete node.properties.so_trigger_override_lora;
+        return false;
+    }
+    const currentLora = connectedTriggerLora(node);
+    const pinnedLora = String(node.properties.so_trigger_override_lora ?? "").trim();
+    // Upgrade old Prompt Core overrides into a LoRA-scoped pin the first time
+    // they are seen with a connected Loader Core.
+    if (!pinnedLora && currentLora) {
+        node.properties.so_trigger_override_lora = currentLora;
+        return false;
+    }
+    if (pinnedLora && pinnedLora !== currentLora) {
+        promptDashboardSet(node, "trigger_override", "");
+        delete node.properties.so_trigger_override_lora;
+        return true;
+    }
+    return false;
+}
+
+function triggerAssemblyState(node) {
+    syncTriggerOverrideScope(node);
+    const token = String(widget(node, "trigger_token")?.value ?? "TRIGGER");
+    const placement = String(widget(node, "trigger_placement")?.value ?? "off");
+    const override = String(widget(node, "trigger_override")?.value ?? "").trim();
+    const connection = promptConnectedSource(node, "main_trigger");
+    const liveValue = promptConnectedLiveValue(connection);
+    const executed = node.__soLastAssembly?.trigger?.value;
+    const value = override || (liveValue !== undefined ? String(liveValue) : String(executed ?? ""));
+    const matches = aliasesInText(activeSourceTemplate(node), tokenCandidates(token, "TRIGGER"));
+    if (placement === "off") return { used: false, tone: value ? "warning" : "off", label: value ? `Off · ${value}` : "Off", token, value, connection, matches, placement };
+    if (!value) return { used: false, tone: "warning", label: connection ? "Waiting for Loader" : "Connect Loader", token, value, connection, matches, placement };
+    if (placement === "token" && !matches.length) return { used: false, tone: "warning", label: "Not placed in prompt", token, value, connection, matches, placement };
+    const placementLabel = { smart: "Auto", token: "Placeholder", prepend: "Beginning", append: "End" }[placement] || placement;
+    return { used: true, tone: "active", label: override ? `Pinned · ${placementLabel} · ${value}` : `${placementLabel} · ${value}`, token, value, connection, matches, placement };
+}
+
+function promptStatusChip(ctx, x, y, w, h, title, detail, tone = "off") {
+    const color = tone === "active" ? SO_CMYKG.green : tone === "warning" ? SO_CMYKG.yellow : "#777782";
+    const fill = tone === "active"
+        ? "rgba(28,69,48,.42)"
+        : tone === "warning" ? "rgba(86,73,24,.34)" : "rgba(31,31,36,.92)";
+    promptRoundRect(ctx, x, y, w, h, 7, fill, `${color}77`);
+    promptDashText(ctx, title, x + 9, y + h / 2, { color, font: "700 9px Segoe UI, Arial" });
+    ctx.save();
+    ctx.font = "10px Segoe UI, Arial";
+    const shown = promptFit(ctx, detail, Math.max(30, w - 83));
+    ctx.restore();
+    promptDashText(ctx, shown, x + w - 9, y + h / 2, { align: "right", color: SO_CMYKG.text, font: "10px Segoe UI, Arial" });
+}
+
+function promptDrawAssemblySummary(node, ctx, x, y, w) {
+    const gap = 6;
+    const chipH = 28;
+    const chipW = (w - gap * 2) / 3;
+    const entries = [
+        ["NAME", substitutionState(node, "name"), "name"],
+        ["OUTFIT A", streamAssemblyState(node, "outfit_A"), "outfit_A"],
+        ["OUTFIT B", streamAssemblyState(node, "outfit_B"), "outfit_B"],
+        ["OUTFIT C", streamAssemblyState(node, "outfit_C"), "outfit_C"],
+        ["SCENE", streamAssemblyState(node, "scene"), "scene"],
+        [configuredPlaceholderLabel(node, "item_token", "ITEM"), substitutionState(node, "item"), "item"],
+        ["TRIGGER", triggerAssemblyState(node), "trigger"],
+    ];
+    entries.forEach(([title, state, key], index) => {
+        const row = Math.floor(index / 3);
+        const column = index % 3;
+        const px = x + column * (chipW + gap);
+        const py = y + row * (chipH + gap);
+        promptStatusChip(ctx, px, py, chipW, chipH, title, state.label, state.tone);
+        if (key === "trigger") {
+            promptHit(node, "assembly_trigger", px, py, chipW, chipH, () => promptTriggerBuilder(node));
+            return;
+        }
+        if (["outfit_A", "outfit_B", "outfit_C", "scene", "trigger"].includes(key)) {
+            const placementName = streamPlacementWidget(key);
+            promptHit(node, `assembly_${key}`, px, py, chipW, chipH, () => promptChoicePopup(
+                node,
+                `${title} placement`,
+                PLACEMENTS,
+                key === "trigger" ? (widget(node, "trigger_placement")?.value ?? "off") : (widget(node, placementName)?.value ?? "smart"),
+                (value) => promptDashboardSet(node, key === "trigger" ? "trigger_placement" : placementName, value),
+                (value) => PLACEMENT_LABELS[value] || value,
+            ));
+        }
+    });
+    return chipH * 3 + gap * 2;
+}
+
+function promptTokenPalette(node) {
+    const item = configuredPlaceholderLabel(node, "item_token", "ITEM");
+    return [
+        [configuredPlaceholderLabel(node, "name_token", "NAME"), SO_CMYKG.yellow],
+        [configuredPlaceholderLabel(node, "outfit_token_A", "OUTFIT_A"), SO_CMYKG.magenta],
+        [configuredPlaceholderLabel(node, "outfit_token_B", "OUTFIT_B"), SO_CMYKG.yellow],
+        [configuredPlaceholderLabel(node, "outfit_token_C", "OUTFIT_C"), SO_CMYKG.cyan],
+        [configuredPlaceholderLabel(node, "scene_token", "SCENE"), SO_CMYKG.green],
+        [item, SO_CMYKG.cyan],
+        [configuredPlaceholderLabel(node, "trigger_token", "TRIGGER"), "#b89aff"],
+    ].filter(([token]) => token);
+}
+
+function promptHighlightedText(ctx, node, line, x, y) {
+    const palette = promptTokenPalette(node);
+    const escaped = palette.map(([token]) => String(token).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((a, b) => b.length - a.length);
+    // Prompt substitution is intentionally case-sensitive, so visual feedback
+    // must not imply that lowercase prose will be replaced.
+    const matcher = escaped.length ? new RegExp(`(\\{?(?:${escaped.join("|")})\\}?)`, "g") : null;
+    const parts = matcher ? String(line).split(matcher) : [String(line)];
+    let cursor = x;
+    for (const part of parts) {
+        const bare = String(part).replace(/^\{|\}$/g, "");
+        const tone = palette.find(([token]) => String(token) === bare)?.[1] || SO_CMYKG.text;
+        ctx.fillStyle = tone;
+        ctx.fillText(part, cursor, y);
+        cursor += ctx.measureText(part).width;
+    }
+}
+
+function promptTextCard(node, ctx, x, y, w, h, title, text, color, emptyText = "Nothing to display") {
     promptRoundRect(ctx, x, y, w, h, 9, "rgba(29,29,33,.98)", color ? `${color}80` : SO_CMYKG.outline);
     promptDashText(ctx, title, x + 12, y + 14, { color: color || SO_CMYKG.label, font: "700 10px Segoe UI, Arial" });
     ctx.save();
@@ -1305,12 +1793,12 @@ function promptTextCard(ctx, x, y, w, h, title, text, color, emptyText = "Nothin
     const lines = promptWrap(ctx, content, w - 24);
     const lineH = 15;
     const maxLines = Math.max(1, Math.floor((h - 36) / lineH));
-    ctx.fillStyle = String(text ?? "").trim() ? SO_CMYKG.text : "rgba(255,255,255,.35)";
     ctx.textAlign = "left"; ctx.textBaseline = "top";
     for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
         let line = lines[i];
         if (i === maxLines - 1 && lines.length > maxLines && line) line = `${line} …`;
-        ctx.fillText(line, x + 12, y + 30 + i * lineH);
+        if (String(text ?? "").trim()) promptHighlightedText(ctx, node, line, x + 12, y + 30 + i * lineH);
+        else { ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fillText(line, x + 12, y + 30 + i * lineH); }
     }
     ctx.restore();
 }
@@ -1338,7 +1826,7 @@ function promptAnchorInput(node, name, y) {
     const anchorY = Number(node.__soPromptInputAnchors?.[String(name)]);
     if (!Number.isFinite(anchorY)) return;
     input.pos = [0, anchorY];
-    input.label = promptExternalInputLabel(name);
+    input.label = name === "main_trigger" ? " " : promptExternalInputLabel(node, name);
     input.color_on = SO_CMYKG.green;
     input.color_off = "#7f8792";
 }
@@ -1352,7 +1840,7 @@ function promptDashboardInputAnchor(node, slotIndex) {
     if (!input) return null;
     const name = promptInputName(input);
     const y = Number(node.__soPromptInputAnchors?.[name]);
-    if (!CANONICAL_NAMES.includes(name) || !Number.isFinite(y) || y < 0) return null;
+    if (!(CANONICAL_NAMES.includes(name) || name === "main_trigger") || !Number.isFinite(y) || y < 0) return null;
     return { name, y };
 }
 
@@ -1364,6 +1852,11 @@ function promptDashboardSet(node, name, value) {
     if (name.includes("index")) {
         const base = STREAM_BASES.find((candidate) => streamConfig(candidate)[2] === name);
         if (base) { resetShuffleBag(node, base); refreshStreamIndexPreview(node, base); }
+    }
+    if (name.includes("placement")) {
+        const base = ["outfit_A", "outfit_B", "outfit_C", "scene"]
+            .find((candidate) => streamPlacementWidget(candidate) === name);
+        if (base) resetShuffleBag(node, base);
     }
     if (name === "prompt_source") {
         layoutPromptDashboard(node, true);
@@ -1444,6 +1937,197 @@ function promptChoicePopup(node, title, values, selected, onChoose, formatter = 
     setTimeout(() => { document.addEventListener("pointerdown", window.__soPromptChoiceOutside, true); search.focus(); }, 0);
 }
 
+function closePromptTriggerBuilder() {
+    document.getElementById("so-prompt-trigger-builder")?.remove();
+}
+
+function chooseTriggerOverride(node, value, lora = connectedTriggerLora(node)) {
+    promptDashboardSet(node, "trigger_override", String(value ?? "").trim());
+    node.properties = node.properties || {};
+    if (String(value ?? "").trim() && lora) node.properties.so_trigger_override_lora = String(lora);
+    else delete node.properties.so_trigger_override_lora;
+}
+
+function chooseConnectedTrigger(node) {
+    promptDashboardSet(node, "trigger_override", "");
+    node.properties = node.properties || {};
+    delete node.properties.so_trigger_override_lora;
+}
+
+const TRIGGER_PLACEMENT_OPTIONS = [
+    { value: "smart", label: "Auto", help: "Uses the TRIGGER placeholder when it exists; otherwise places the trigger at the beginning of the prompt." },
+    { value: "token", label: "Placeholder", help: "Only replaces the TRIGGER placeholder. If the placeholder is absent, the trigger is not inserted." },
+    { value: "prepend", label: "Beginning", help: "Always places the trigger before the prompt and removes a TRIGGER placeholder if one is present." },
+    { value: "append", label: "End", help: "Always places the trigger after the prompt and removes a TRIGGER placeholder if one is present." },
+    { value: "off", label: "Off", help: "Does not inject a trigger. A TRIGGER placeholder in the prompt is removed." },
+];
+
+function triggerSourceLabel(source = "") {
+    const value = String(source);
+    if (value === "modelspec.title") return "model title hint";
+    if (value === "modelspec.trigger_phrase") return "embedded trigger phrase";
+    if (value === "ss_tag_frequency") return "training tag frequency";
+    if (value.startsWith("civitai.")) return "Civitai";
+    if (value === "embedded") return "embedded metadata";
+    return value || "metadata";
+}
+
+async function promptTriggerBuilder(node) {
+    closePromptTriggerBuilder(); closePromptChoicePopup(); closePromptLogBrowser();
+    syncTriggerOverrideScope(node);
+    const connection = promptConnectedSource(node, "main_trigger");
+    const loader = connection?.node;
+    const lora = String(widget(loader, "main_lora")?.value ?? "").trim();
+    let automaticCandidate = null;
+
+    const root = document.createElement("div"); root.id = "so-prompt-trigger-builder";
+    Object.assign(root.style, { position: "fixed", zIndex: "100003", inset: "0", background: "rgba(0,0,0,.64)", display: "flex", alignItems: "center", justifyContent: "center", padding: "22px" });
+    const card = document.createElement("div");
+    Object.assign(card.style, { width: "780px", maxWidth: "96vw", maxHeight: "90vh", overflow: "auto", background: "#151519", border: `1px solid ${SO_CMYKG.magenta}bb`, borderRadius: "12px", boxShadow: "0 18px 60px rgba(0,0,0,.7)", color: "#f3f3f5", font: "13px Segoe UI, Arial" });
+    const header = document.createElement("div"); header.textContent = "TRIGGER SETUP";
+    Object.assign(header.style, { padding: "13px 15px", fontWeight: "800", color: SO_CMYKG.magenta, borderBottom: `1px solid ${SO_CMYKG.cyan}55`, letterSpacing: ".03em" });
+    const detail = document.createElement("div");
+    detail.textContent = lora ? `Main LoRA: ${lora}` : "Connect Loader Core → main_trigger to follow the selected Main LoRA.";
+    Object.assign(detail.style, { padding: "10px 15px", color: "#b8b8c0", borderBottom: "1px solid #2b2b31" });
+
+    const sourceSection = document.createElement("section");
+    Object.assign(sourceSection.style, { padding: "12px", borderBottom: "1px solid #2b2b31" });
+    const sourceHeading = document.createElement("div"); sourceHeading.textContent = "TRIGGER SOURCE";
+    Object.assign(sourceHeading.style, { color: SO_CMYKG.cyan, fontWeight: "800", fontSize: "11px", letterSpacing: ".06em", marginBottom: "8px" });
+    const sourceStatus = document.createElement("div");
+    Object.assign(sourceStatus.style, { padding: "10px 11px", borderRadius: "8px", border: "1px solid #3d3d45", background: "#1b1b20", marginBottom: "8px", lineHeight: "1.35" });
+    const sourceActions = document.createElement("div"); Object.assign(sourceActions.style, { display: "flex", gap: "7px", flexWrap: "wrap", alignItems: "center" });
+    const followLoader = document.createElement("button"); followLoader.textContent = "Follow Loader Core";
+    Object.assign(followLoader.style, { padding: "8px 11px", borderRadius: "7px", border: `1px solid ${SO_CMYKG.green}aa`, background: "#25252a", color: "#fff", cursor: connection ? "pointer" : "default", opacity: connection ? "1" : ".45", fontWeight: "700" });
+    followLoader.disabled = !connection;
+    sourceActions.append(followLoader);
+    sourceSection.append(sourceHeading, sourceStatus, sourceActions);
+
+    const renderSourceStatus = () => {
+        syncTriggerOverrideScope(node);
+        const override = String(widget(node, "trigger_override")?.value ?? "").trim();
+        const live = promptConnectedLiveValue(promptConnectedSource(node, "main_trigger"));
+        const automatic = automaticCandidate?.suggested || automaticCandidate?.raw || "";
+        sourceStatus.replaceChildren();
+        const title = document.createElement("div");
+        const value = document.createElement("div");
+        const note = document.createElement("div");
+        Object.assign(title.style, { fontWeight: "800", color: override ? SO_CMYKG.yellow : SO_CMYKG.green, marginBottom: "2px" });
+        Object.assign(value.style, { color: "#f5f5f7", fontWeight: "650" });
+        Object.assign(note.style, { color: "#92929b", fontSize: "11px", marginTop: "3px" });
+        if (override) {
+            title.textContent = "Pinned for this LoRA";
+            value.textContent = override;
+            note.textContent = "This manual choice resets automatically when the connected Main LoRA changes.";
+        } else {
+            title.textContent = "Following Loader Core";
+            value.textContent = String(live ?? automatic ?? "").trim() || "No automatic trigger detected";
+            note.textContent = connection
+                ? "The trigger follows Loader Core and changes automatically with the Main LoRA."
+                : "Connect Loader Core → main_trigger to use dynamic trigger detection.";
+        }
+        sourceStatus.append(title, value, note);
+    };
+    followLoader.onclick = () => { chooseConnectedTrigger(node); renderSourceStatus(); };
+
+    const placementSection = document.createElement("section");
+    Object.assign(placementSection.style, { padding: "12px", borderBottom: "1px solid #2b2b31", background: "rgba(255,255,255,.012)" });
+    const placementHeading = document.createElement("div"); placementHeading.textContent = "PLACEMENT";
+    Object.assign(placementHeading.style, { color: SO_CMYKG.magenta, fontWeight: "800", fontSize: "11px", letterSpacing: ".06em", marginBottom: "8px" });
+    const placementButtonsWrap = document.createElement("div"); Object.assign(placementButtonsWrap.style, { display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" });
+    const placementHelp = document.createElement("div"); Object.assign(placementHelp.style, { color: "#9898a1", fontSize: "11px", lineHeight: "1.35", marginTop: "8px" });
+    const placementButtons = new Map();
+    const refreshPlacementButtons = () => {
+        const current = String(widget(node, "trigger_placement")?.value ?? "off");
+        for (const option of TRIGGER_PLACEMENT_OPTIONS) {
+            const button = placementButtons.get(option.value);
+            const active = option.value === current;
+            button.style.borderColor = active ? `${SO_CMYKG.green}dd` : "#4a4a50";
+            button.style.background = active ? "rgba(28,69,48,.55)" : "#222227";
+            button.style.color = active ? "#eafff2" : "#d6d6da";
+            if (active) placementHelp.textContent = option.help;
+        }
+    };
+    for (const option of TRIGGER_PLACEMENT_OPTIONS) {
+        const button = document.createElement("button"); button.textContent = option.label;
+        Object.assign(button.style, { padding: "7px 9px", borderRadius: "6px", border: "1px solid #4a4a50", background: "#222227", color: "#d6d6da", cursor: "pointer", fontSize: "11px", fontWeight: "650" });
+        button.onclick = () => { promptDashboardSet(node, "trigger_placement", option.value); refreshPlacementButtons(); };
+        placementButtons.set(option.value, button); placementButtonsWrap.append(button);
+    }
+    placementSection.append(placementHeading, placementButtonsWrap, placementHelp);
+    refreshPlacementButtons();
+
+    const candidateSection = document.createElement("section"); Object.assign(candidateSection.style, { padding: "12px" });
+    const candidateHeading = document.createElement("div"); candidateHeading.textContent = "DETECTED FOR THIS LORA";
+    Object.assign(candidateHeading.style, { color: SO_CMYKG.cyan, fontWeight: "800", fontSize: "11px", letterSpacing: ".06em", marginBottom: "8px" });
+    const list = document.createElement("div"); list.textContent = lora ? "Checking embedded metadata and Civitai candidates…" : "No connected Main LoRA yet.";
+    Object.assign(list.style, { marginBottom: "10px" });
+
+    const customRow = document.createElement("div"); Object.assign(customRow.style, { display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: "7px", marginTop: "10px", paddingTop: "10px", borderTop: "1px solid #2b2b31" });
+    const customInput = document.createElement("input"); customInput.type = "text"; customInput.placeholder = "Custom trigger for this LoRA";
+    Object.assign(customInput.style, { minWidth: "0", padding: "8px 9px", borderRadius: "7px", border: "1px solid #494951", background: "#0f0f13", color: "#fff", outline: "none" });
+    const customUse = document.createElement("button"); customUse.textContent = "Use custom";
+    Object.assign(customUse.style, { padding: "8px 11px", borderRadius: "7px", border: `1px solid ${SO_CMYKG.yellow}88`, background: "#25252a", color: "#fff", cursor: "pointer", fontWeight: "700" });
+    customUse.onclick = () => { const value = customInput.value.trim(); if (!value) return; chooseTriggerOverride(node, value, lora); renderSourceStatus(); };
+    customInput.addEventListener("keydown", event => { if (event.key === "Enter") customUse.click(); });
+    customRow.append(customInput, customUse);
+    candidateSection.append(candidateHeading, list, customRow);
+
+    const footer = document.createElement("div"); Object.assign(footer.style, { display: "flex", justifyContent: "flex-end", gap: "8px", padding: "12px", borderTop: "1px solid #2b2b31" });
+    const close = document.createElement("button"); close.textContent = "Done";
+    Object.assign(close.style, { padding: "8px 12px", borderRadius: "6px", border: "1px solid #555", background: "#25252a", color: "#fff", cursor: "pointer" });
+    close.onclick = closePromptTriggerBuilder; footer.append(close);
+    card.append(header, detail, sourceSection, placementSection, candidateSection, footer); root.append(card); document.body.append(root);
+    root.addEventListener("pointerdown", event => { if (event.target === root) closePromptTriggerBuilder(); });
+    renderSourceStatus();
+
+    if (!lora) return;
+    try {
+        const response = await fetch(`/sickollie/studio/loader-core/trigger-candidates?lora=${encodeURIComponent(lora)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+        automaticCandidate = payload?.automatic && typeof payload.automatic === "object" ? payload.automatic : null;
+        renderSourceStatus();
+        list.replaceChildren();
+        if (!candidates.length) {
+            const empty = document.createElement("div"); empty.textContent = "No explicit trigger candidates were found for this LoRA.";
+            Object.assign(empty.style, { color: "#9999a2", padding: "7px 2px" }); list.append(empty); return;
+        }
+        const grouped = new Map();
+        for (const candidate of candidates) {
+            const value = String(candidate.suggested || candidate.raw || "").trim();
+            if (!value) continue;
+            const key = value.toLocaleLowerCase();
+            if (!grouped.has(key)) grouped.set(key, { value, candidates: [] });
+            grouped.get(key).candidates.push(candidate);
+        }
+        for (const group of grouped.values()) {
+            const reliable = group.candidates.some(candidate => !(candidate.flags || []).includes("identity-only"));
+            const auto = group.candidates.some(candidate => candidate.auto_select);
+            const sources = [...new Set(group.candidates.map(candidate => triggerSourceLabel(candidate.source)))];
+            const flags = [...new Set(group.candidates.flatMap(candidate => Array.isArray(candidate.flags) ? candidate.flags : []))];
+            const row = document.createElement("button");
+            row.type = "button";
+            Object.assign(row.style, { display: "block", width: "100%", textAlign: "left", padding: "10px 11px", marginBottom: "6px", borderRadius: "8px", border: `1px solid ${reliable ? (auto ? SO_CMYKG.green : SO_CMYKG.yellow) : "#55545c"}77`, background: reliable ? (auto ? "rgba(28,69,48,.32)" : "rgba(86,73,24,.24)") : "rgba(45,45,50,.45)", color: reliable ? "#f3f3f5" : "#9a9aa3", cursor: reliable ? "pointer" : "default" });
+            const valueLine = document.createElement("div"); valueLine.textContent = group.value;
+            Object.assign(valueLine.style, { fontWeight: "750", color: reliable ? "#f6f6f8" : "#aaaab2" });
+            const sourceLine = document.createElement("div");
+            const extraFlags = flags.filter(flag => flag !== "identity-only");
+            sourceLine.textContent = reliable
+                ? `${sources.join(" + ")}${extraFlags.length ? ` · ${extraFlags.join(", ")}` : ""}`
+                : `${sources.join(" + ")} · identity hint, not used as an activation trigger`;
+            Object.assign(sourceLine.style, { marginTop: "2px", fontSize: "10px", color: reliable ? "#9d9da6" : "#74747c" });
+            row.append(valueLine, sourceLine);
+            row.title = reliable ? "Pin this trigger for the current Main LoRA." : "Model title metadata is shown as context only.";
+            if (reliable) row.onclick = () => { chooseTriggerOverride(node, group.value, lora); customInput.value = group.value; renderSourceStatus(); };
+            list.append(row);
+        }
+    } catch (error) {
+        list.textContent = `Could not load trigger candidates: ${error.message}`;
+    }
+}
+
 function closePromptTextEditor() {
     const root = document.getElementById("so-prompt-dashboard-editor");
     if (root) root.remove();
@@ -1461,6 +2145,45 @@ function promptTextEditor(node, title, widgetName, multiline = true) {
     const input = multiline ? document.createElement("textarea") : document.createElement("input");
     input.value = String(target.value ?? "");
     Object.assign(input.style, { boxSizing: "border-box", width: "calc(100% - 24px)", margin: "12px", minHeight: multiline ? "360px" : "38px", resize: multiline ? "vertical" : "none", padding: "10px 11px", background: "#0d0d10", color: "#f4f4f5", border: `1px solid ${SO_CMYKG.cyan}77`, borderRadius: "7px", outline: "none", font: multiline ? "13px Consolas, monospace" : "13px Segoe UI, Arial" });
+    let toolbar = null;
+    if (widgetName === "manual_prompt" && multiline) {
+        toolbar = document.createElement("div");
+        Object.assign(toolbar.style, { display: "flex", flexWrap: "wrap", gap: "6px", padding: "10px 12px 0" });
+        const insertions = [
+            ["NAME", "name_token", "NAME"],
+            ["OUTFIT A", "outfit_token_A", "OUTFIT_A"],
+            ["OUTFIT B", "outfit_token_B", "OUTFIT_B"],
+            ["OUTFIT C", "outfit_token_C", "OUTFIT_C"],
+            ["SCENE", "scene_token", "SCENE"],
+            ["ITEM", "item_token", "ITEM"],
+            ["TRIGGER", "trigger_token", "TRIGGER"],
+        ];
+        for (const [label, tokenWidgetName, fallback] of insertions) {
+            const button = document.createElement("button");
+            const configured = String(widget(node, tokenWidgetName)?.value ?? fallback).trim() || fallback;
+            const configuredLabel = configured.startsWith("{") && configured.endsWith("}")
+                ? configured.slice(1, -1).trim()
+                : configured;
+            button.textContent = `+ ${configuredLabel || label}`;
+            Object.assign(button.style, { padding: "6px 9px", borderRadius: "6px", border: `1px solid ${SO_CMYKG.cyan}66`, background: "#24242a", color: "#f4f4f5", cursor: "pointer", font: "700 10px Segoe UI, Arial" });
+            button.onclick = () => {
+                const raw = String(widget(node, tokenWidgetName)?.value ?? fallback).trim() || fallback;
+                const bare = raw.startsWith("{") && raw.endsWith("}") ? raw.slice(1, -1).trim() : raw;
+                const token = `{${bare}}`;
+                const start = Number.isFinite(input.selectionStart) ? input.selectionStart : input.value.length;
+                const end = Number.isFinite(input.selectionEnd) ? input.selectionEnd : start;
+                const before = input.value.slice(0, start);
+                const after = input.value.slice(end);
+                const left = before && !/\s$/.test(before) ? " " : "";
+                const right = after && !/^[\s,.;:!?]/.test(after) ? " " : "";
+                input.value = `${before}${left}${token}${right}${after}`;
+                const caret = before.length + left.length + token.length + right.length;
+                input.focus();
+                input.setSelectionRange(caret, caret);
+            };
+            toolbar.append(button);
+        }
+    }
     const footer = document.createElement("div"); Object.assign(footer.style, { display: "flex", justifyContent: "flex-end", gap: "8px", padding: "0 12px 12px" });
     const cancel = document.createElement("button"); cancel.textContent = "Cancel";
     const save = document.createElement("button"); save.textContent = "Save";
@@ -1470,7 +2193,11 @@ function promptTextEditor(node, title, widgetName, multiline = true) {
     save.onclick = () => { promptDashboardSet(node, widgetName, input.value); closePromptTextEditor(); };
     root.addEventListener("pointerdown", (event) => { if (event.target === root) closePromptTextEditor(); });
     input.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") save.click(); if (event.key === "Escape") closePromptTextEditor(); });
-    footer.append(cancel, save); card.append(header, input, footer); root.append(card); document.body.append(root); setTimeout(() => input.focus(), 0);
+    footer.append(cancel, save);
+    card.append(header);
+    if (toolbar) card.append(toolbar);
+    card.append(input, footer);
+    root.append(card); document.body.append(root); setTimeout(() => input.focus(), 0);
 }
 
 async function promptCopyValue(node, key, value) {
@@ -1517,27 +2244,44 @@ function promptOpenIndexChoice(node, base) {
 }
 
 function promptDrawStreamCard(node, ctx, base, x, y, w, accent, hitPrefix) {
-    const h = 83;
+    const h = 112;
     const [fileName, modeName, indexName] = streamConfig(base);
     const tokenName = streamTokenWidget(base);
-    promptAnchorInput(node, tokenName, y + 14);
-    promptAnchorInput(node, fileName, y + 38);
-    promptAnchorInput(node, modeName, y + 67);
-    promptAnchorInput(node, indexName, y + 67);
+    const placementName = streamPlacementWidget(base);
+    promptAnchorInput(node, tokenName, y + 39);
+    promptAnchorInput(node, placementName, y + 39);
+    promptAnchorInput(node, fileName, y + 68);
+    promptAnchorInput(node, modeName, y + 97);
+    promptAnchorInput(node, indexName, y + 97);
     promptRoundRect(ctx, x, y, w, h, 9, "rgba(25,25,29,.98)", `${accent}88`);
     const token = String(widget(node, tokenName)?.value ?? (base === "scene" ? "SCENE" : base.replace("outfit_", "OUTFIT_")));
     const title = base === "scene" ? "SCENE" : base.replace("outfit_", "OUTFIT ").toUpperCase();
-    promptDashText(ctx, `${title}  ✎`, x + 12, y + 14, { color: accent, font: "700 10px Segoe UI, Arial" });
-    promptDashText(ctx, `${token}  ${node.__soPromptCopyFlash === `${hitPrefix}_token` ? "✓" : "📋"}`, x + w - 12, y + 14, { align: "right", color: node.__soPromptCopyFlash === `${hitPrefix}_token` ? SO_CMYKG.green : SO_CMYKG.label, font: "10px Segoe UI, Arial" });
-    promptHit(node, `${hitPrefix}_token_edit`, x, y, Math.max(80, w - 155), 26, () => promptTextEditor(node, `${title} token`, tokenName, false));
-    promptHit(node, `${hitPrefix}_token`, x + w - 150, y, 150, 28, () => promptCopyValue(node, `${hitPrefix}_token`, token));
+    const state = streamAssemblyState(node, base);
+    const statusColor = state.tone === "active" ? SO_CMYKG.green : state.tone === "warning" ? SO_CMYKG.yellow : SO_CMYKG.label;
+    promptDashText(ctx, title, x + 12, y + 14, { color: accent, font: "700 10px Segoe UI, Arial" });
+    ctx.save(); ctx.font = "10px Segoe UI, Arial";
+    const status = promptFit(ctx, state.label, Math.min(330, w * .48));
+    ctx.restore();
+    promptDashText(ctx, status, x + w - 12, y + 14, { align: "right", color: statusColor, font: "10px Segoe UI, Arial" });
 
-    const fileY = y + 26;
+    const innerX = x + 8;
+    const innerW = w - 16;
+    const gap = 6;
+    const placementW = Math.min(300, innerW * .42);
+    const tokenW = innerW - placementW - gap;
+    const controlY = y + 26;
+    const placement = String(widget(node, placementName)?.value ?? "smart");
+    promptValueRow(ctx, innerX, controlY, placementW, 25, "Placement", PLACEMENT_SHORT_LABELS[placement] || placement, { stroke: `${accent}44` });
+    promptValueRow(ctx, innerX + placementW + gap, controlY, tokenW, 25, "Placeholder ✎", token, { stroke: `${accent}44`, chevron: false });
+    promptHit(node, `${hitPrefix}_placement`, innerX, controlY, placementW, 25, () => promptChoicePopup(node, `${title} placement`, PLACEMENTS, placement, (value) => promptDashboardSet(node, placementName, value), (value) => PLACEMENT_LABELS[value] || value));
+    promptHit(node, `${hitPrefix}_token_edit`, innerX + placementW + gap, controlY, tokenW, 25, () => promptTextEditor(node, `${title} placeholder`, tokenName, false));
+
+    const fileY = controlY + 29;
     promptValueRow(ctx, x + 8, fileY, w - 16, 25, "Log", promptLogDisplay(node, base), { stroke: `${accent}44` });
     promptHit(node, `${hitPrefix}_file`, x + 8, fileY, w - 16, 25, () => { closePromptChoicePopup(); openPromptLogBrowser(node, base); });
 
     const bottomY = fileY + 29;
-    const gap = 6; const half = (w - 16 - gap) / 2;
+    const half = (w - 16 - gap) / 2;
     promptValueRow(ctx, x + 8, bottomY, half, 25, "Mode", widget(node, modeName)?.value ?? "fixed");
     promptValueRow(ctx, x + 8 + half + gap, bottomY, half, 25, "Index", promptStreamIndexLabel(node, base));
     promptHit(node, `${hitPrefix}_mode`, x + 8, bottomY, half, 25, () => promptChoicePopup(node, `${title} mode`, MODES, widget(node, modeName)?.value, (value) => promptDashboardSet(node, modeName, value)));
@@ -1557,7 +2301,7 @@ function drawPromptExternalInputs(node, ctx, x, y, w) {
         if (!Number.isFinite(anchorY) || anchorY < 0) continue;
 
         const connected = promptInputIsConnected(input);
-        promptDashText(ctx, promptExternalInputLabel(name), x + 2, anchorY, {
+        promptDashText(ctx, promptExternalInputLabel(node, name), x + 2, anchorY, {
             color: connected ? SO_CMYKG.green : "#a8a8b2",
             font: connected ? "700 11px Segoe UI, Arial" : "11px Segoe UI, Arial",
             baseline: "middle",
@@ -1587,11 +2331,11 @@ function drawPromptDashboard(node, ctx) {
     // The socket bay lives above this point. From Prompt Source downward the
     // dashboard is one cohesive full-width surface again.
     const lowerTop = promptLowerStart(node);
-    const sourceShellH = Math.max(promptSourceHeight(node), lowerTop - sourceTop - 8);
-    promptRoundRect(ctx, x - 3, sourceTop - 5, w + 6, sourceShellH + 10, 11, "rgba(9,9,12,.52)", null);
-    promptGradientFrame(ctx, x - 3, sourceTop - 5, w + 6, sourceShellH + 10, 11, .38);
+    const sourceFrame = promptSourceFrameGeometry(sourceTop, lowerTop);
+    promptRoundRect(ctx, x - 3, sourceFrame.top, w + 6, sourceFrame.height, 11, "rgba(9,9,12,.52)", null);
+    promptGradientFrame(ctx, x - 3, sourceFrame.top, w + 6, sourceFrame.height, 11, .48, SO_CMYKG.cyan);
     promptRoundRect(ctx, PROMPT_DASH_PAD - 3, lowerTop - 5, fullW + 6, promptLowerHeight(node) + 10, 11, "rgba(9,9,12,.52)", null);
-    promptGradientFrame(ctx, PROMPT_DASH_PAD - 3, lowerTop - 5, fullW + 6, promptLowerHeight(node) + 10, 11, .38);
+    promptGradientFrame(ctx, PROMPT_DASH_PAD - 3, lowerTop - 5, fullW + 6, promptLowerHeight(node) + 10, 11, .48, SO_CMYKG.magenta);
 
     promptSection(ctx, "Prompt Source", x + 2, y + 8, SO_CMYKG.cyan); y += 19;
     const sourceMode = String(widget(node, "prompt_source")?.value ?? "manual");
@@ -1610,10 +2354,10 @@ function drawPromptDashboard(node, ctx) {
     y += rowH + gap;
 
     const sourceText = sourceMode === "log" ? promptStreamLine(node, "prompt") : String(widget(node, "manual_prompt")?.value ?? "");
-    const trailingSourceH = sourceMode === "log" ? (gap + rowH + 12) : (gap + 6);
+    const trailingSourceH = sourceMode === "log" ? (gap + rowH + PROMPT_LOG_BOTTOM_PAD) : (gap + 6);
     const sourceCardH = Math.max(128, lowerTop - y - trailingSourceH);
     promptAnchorInput(node, sourceMode === "log" ? "prompt_index" : "manual_prompt", y + sourceCardH / 2);
-    promptTextCard(ctx, x, y, w, sourceCardH, sourceMode === "log" ? "SELECTED PROMPT LINE" : "MANUAL PROMPT", sourceText, SO_CMYKG.cyan, sourceMode === "log" ? "Choose a prompt log" : "Click to write a prompt");
+    promptTextCard(node, ctx, x, y, w, sourceCardH, sourceMode === "log" ? "SELECTED PROMPT LINE" : "MANUAL PROMPT", sourceText, SO_CMYKG.cyan, sourceMode === "log" ? "Choose a prompt log" : "Click to write a prompt");
     promptHit(node, "source_text", x, y, w, sourceCardH, () => {
         if (sourceMode === "manual") promptTextEditor(node, "Manual prompt", "manual_prompt", true);
         else promptOpenIndexChoice(node, "prompt");
@@ -1627,50 +2371,77 @@ function drawPromptDashboard(node, ctx) {
         promptAnchorInput(node, "prompt_index", y + rowH / 2);
         promptHit(node, "prompt_mode", x, y, half, rowH, () => promptChoicePopup(node, "Prompt mode", MODES, widget(node, "prompt_mode")?.value, (value) => promptDashboardSet(node, "prompt_mode", value)));
         promptHit(node, "prompt_index", x + half + gap, y, half, rowH, () => promptOpenIndexChoice(node, "prompt"));
-        y += rowH + 12;
+        y += rowH + PROMPT_LOG_BOTTOM_PAD;
     } else y += 6;
 
     y = Math.max(y, lowerTop);
 
-    promptSection(ctx, "Outfits + Scene", x + 2, y + 7, SO_CMYKG.magenta); y += 18;
+    promptSection(ctx, "Prompt Assembly", x + 2, y + 7, SO_CMYKG.magenta); y += 18;
+    y += promptDrawAssemblySummary(node, ctx, x, y, w) + 12;
     y += promptDrawStreamCard(node, ctx, "outfit_A", x, y, w, SO_CMYKG.magenta, "outfit_a") + gap;
     y += promptDrawStreamCard(node, ctx, "outfit_B", x, y, w, SO_CMYKG.yellow, "outfit_b") + gap;
     y += promptDrawStreamCard(node, ctx, "outfit_C", x, y, w, SO_CMYKG.cyan, "outfit_c") + gap;
     y += promptDrawStreamCard(node, ctx, "scene", x, y, w, SO_CMYKG.green, "scene") + 12;
 
     promptSection(ctx, "Substitutions", x + 2, y + 7, SO_CMYKG.yellow); y += 18;
-    const half = (w - gap) / 2;
     const nameToken = String(widget(node, "name_token")?.value ?? "NAME");
     const itemToken = String(widget(node, "item_token")?.value ?? "ITEM");
-    promptValueRow(ctx, x, y, half, rowH, `${nameToken} ✎`, widget(node, "name_value")?.value ?? "", { stroke: `${SO_CMYKG.yellow}55`, chevron: false });
-    promptValueRow(ctx, x + half + gap, y, half, rowH, `${itemToken} ✎`, widget(node, "item_value")?.value ?? "", { stroke: `${SO_CMYKG.yellow}55`, chevron: false });
-    promptAnchorInput(node, "name_token", y + rowH / 2);
-    promptAnchorInput(node, "name_value", y + rowH / 2);
-    promptAnchorInput(node, "item_token", y + rowH / 2);
-    promptAnchorInput(node, "item_value", y + rowH / 2);
-    const subTokenW = Math.min(120, half * .38);
-    promptHit(node, "name_token", x, y, subTokenW, rowH, () => promptTextEditor(node, "NAME token", "name_token", false));
-    promptHit(node, "name_value", x + subTokenW, y, half - subTokenW, rowH, () => promptTextEditor(node, `${nameToken} value`, "name_value", false));
-    promptHit(node, "item_token", x + half + gap, y, subTokenW, rowH, () => promptTextEditor(node, "ITEM token", "item_token", false));
-    promptHit(node, "item_value", x + half + gap + subTokenW, y, half - subTokenW, rowH, () => promptTextEditor(node, `${itemToken} value`, "item_value", false));
-    y += rowH + 12;
+    const nameState = substitutionState(node, "name");
+    const itemState = substitutionState(node, "item");
+    const subTokenW = Math.min(210, w * .27);
+    const subValueW = w - subTokenW - gap;
+    const drawSubstitution = (kind, token, state, tokenName, valueName) => {
+        const connected = Boolean(state.connection);
+        const valueLabel = connected ? "Connected value 🔒" : "Manual value";
+        const linkedDisplay = connected
+            ? `${state.connection.label}${state.value ? ` · ${state.value}` : ""}`
+            : state.value;
+        promptValueRow(ctx, x, y, subTokenW, rowH, "Placeholder ✎", token, { stroke: `${SO_CMYKG.yellow}55`, chevron: false });
+        promptValueRow(ctx, x + subTokenW + gap, y, subValueW, rowH, valueLabel, linkedDisplay, {
+            stroke: connected ? `${SO_CMYKG.green}88` : `${SO_CMYKG.yellow}55`,
+            valueColor: connected ? SO_CMYKG.green : SO_CMYKG.text,
+            chevron: false,
+        });
+        promptAnchorInput(node, tokenName, y + rowH / 2);
+        promptAnchorInput(node, valueName, y + rowH / 2);
+        promptHit(node, `${kind}_token`, x, y, subTokenW, rowH, () => promptTextEditor(node, `${token} placeholder`, tokenName, false));
+        if (!connected) {
+            promptHit(node, `${kind}_value`, x + subTokenW + gap, y, subValueW, rowH, () => promptTextEditor(node, `${token} value`, valueName, false));
+        } else {
+            promptHit(node, `${kind}_source`, x + subTokenW + gap, y, subValueW, rowH, () => pulseConnectedSource(node, valueName));
+        }
+        y += rowH;
+    };
+    drawSubstitution("name", nameToken, nameState, "name_token", "name_value");
+    y += gap;
+    drawSubstitution("item", itemToken, itemState, "item_token", "item_value");
+    y += 12;
 
     promptSection(ctx, "Prompt Additions", x + 2, y + 7, SO_CMYKG.green); y += 18;
     const toggleW = Math.min(155, w * .22); const textW = w - toggleW - gap;
-    promptToggleRow(ctx, x, y, toggleW, rowH, "Prefix", Boolean(widget(node, "prefix_enabled")?.value), SO_CMYKG.green);
-    promptValueRow(ctx, x + toggleW + gap, y, textW, rowH, "Text", widget(node, "prefix_text")?.value ?? "", { stroke: `${SO_CMYKG.green}55`, chevron: false });
-    promptAnchorInput(node, "prefix_enabled", y + rowH / 2);
-    promptAnchorInput(node, "prefix_text", y + rowH / 2);
-    promptHit(node, "prefix_toggle", x, y, toggleW, rowH, () => promptDashboardToggle(node, "prefix_enabled"));
-    promptHit(node, "prefix_text", x + toggleW + gap, y, textW, rowH, () => promptTextEditor(node, "Prompt prefix", "prefix_text", true));
-    y += rowH + gap;
-    promptToggleRow(ctx, x, y, toggleW, rowH, "Suffix", Boolean(widget(node, "suffix_enabled")?.value), SO_CMYKG.green);
-    promptValueRow(ctx, x + toggleW + gap, y, textW, rowH, "Text", widget(node, "suffix_text")?.value ?? "", { stroke: `${SO_CMYKG.green}55`, chevron: false });
-    promptAnchorInput(node, "suffix_enabled", y + rowH / 2);
-    promptAnchorInput(node, "suffix_text", y + rowH / 2);
-    promptHit(node, "suffix_toggle", x, y, toggleW, rowH, () => promptDashboardToggle(node, "suffix_enabled"));
-    promptHit(node, "suffix_text", x + toggleW + gap, y, textW, rowH, () => promptTextEditor(node, "Prompt suffix", "suffix_text", true));
-    y += rowH + 9;
+    const drawAffix = (kind, enabledName, textName) => {
+        const title = kind === "prefix" ? "Prefix" : "Suffix";
+        const textState = promptConnectedTextState(node, textName, kind);
+        promptToggleRow(ctx, x, y, toggleW, rowH, title, Boolean(widget(node, enabledName)?.value), SO_CMYKG.green);
+        promptValueRow(ctx, x + toggleW + gap, y, textW, rowH, textState.connected ? "Connected text 🔒" : "Text", textState.display, {
+            stroke: textState.connected ? `${SO_CMYKG.green}88` : `${SO_CMYKG.green}55`,
+            valueColor: textState.connected ? SO_CMYKG.green : SO_CMYKG.text,
+            chevron: false,
+        });
+        promptAnchorInput(node, enabledName, y + rowH / 2);
+        promptAnchorInput(node, textName, y + rowH / 2);
+        promptHit(node, `${kind}_toggle`, x, y, toggleW, rowH, () => promptDashboardToggle(node, enabledName));
+        if (!textState.connected) {
+            promptHit(node, textName, x + toggleW + gap, y, textW, rowH, () => promptTextEditor(node, `Prompt ${kind}`, textName, true));
+        } else {
+            promptHit(node, `${kind}_source`, x + toggleW + gap, y, textW, rowH, () => pulseConnectedSource(node, textName));
+        }
+        y += rowH;
+    };
+    drawAffix("prefix", "prefix_enabled", "prefix_text");
+    y += gap;
+    drawAffix("suffix", "suffix_enabled", "suffix_text");
+    y += 9;
 
     const expanded = Boolean(node.properties?.so_prompt_dashboard_advanced);
     promptRoundRect(ctx, x, y, w, 28, 8, "rgba(31,31,36,.98)", "rgba(246,230,90,.28)");
@@ -1697,7 +2468,7 @@ function drawPromptDashboard(node, ctx) {
     const resolvedH = 130;
     const resolved = String(widget(node, "saved_prompt")?.value ?? node.properties?.so_saved_final_prompt ?? "");
     promptAnchorInput(node, "saved_prompt", y + resolvedH / 2);
-    promptTextCard(ctx, x, y, w, resolvedH, "RESULTING PERSISTENT PROMPT", resolved, SO_CMYKG.cyan, "Run once to populate the resolved prompt");
+    promptTextCard(node, ctx, x, y, w, resolvedH, "RESULTING PERSISTENT PROMPT", resolved, SO_CMYKG.cyan, "Run once to populate the resolved prompt");
     y += resolvedH + 6;
     const copied = node.__soPromptCopyFlash === "resolved";
     promptRoundRect(ctx, x, y, w, 29, 7, copied ? "rgba(54,119,81,.45)" : SO_CMYKG.row, copied ? `${SO_CMYKG.green}cc` : `${SO_CMYKG.cyan}55`);
@@ -1733,9 +2504,10 @@ function layoutPromptDashboard(node, refit = false) {
     if (!node.__soPromptDashboardReady) return;
     hidePromptDashboardBackingWidgets(node);
     layoutPromptInputSockets(node);
+    layoutPromptOutputSockets(node);
     node.widgets_start_y = promptDashBottom(node) + 10;
     node.size[0] = Math.max(Number(node.size?.[0] || 0), PROMPT_DASH_MIN_WIDTH);
-    node.bgcolor = "#000000";
+    applyStudioNodeColors(node);
     if (refit) {
         // Fit exactly around the custom dashboard. Converted widget inputs no
         // longer reserve a hidden native-widget basement below this height.
@@ -1754,7 +2526,7 @@ function ensurePromptDashboard(node) {
     node.properties = node.properties || {};
     node.properties.so_prompt_dashboard_version = PROMPT_DASH_VERSION;
     node.__soPromptDashboardReady = true;
-    node.bgcolor = "#000000";
+    applyStudioNodeColors(node);
     hidePromptDashboardBackingWidgets(node);
     layoutPromptDashboard(node, true);
 }
@@ -1791,6 +2563,17 @@ function installPromptDashboardHooks(nodeType) {
                 return result;
             }
         }
+        if (!isInput && this.__soPromptDashboardReady) {
+            let slotIndex = typeof slot === "number" ? slot : this.findOutputSlot?.(slot);
+            if (!Number.isInteger(slotIndex) || slotIndex < 0) slotIndex = Number(slot);
+            const anchor = promptOutputAnchor(this, slotIndex);
+            if (anchor) {
+                const result = out || [0, 0];
+                result[0] = Number(this.pos?.[0] || 0) + anchor.x;
+                result[1] = Number(this.pos?.[1] || 0) + anchor.y;
+                return result;
+            }
+        }
         return originalGetConnectionPos?.apply(this, arguments);
     };
 
@@ -1818,8 +2601,25 @@ function installPromptDashboardHooks(nodeType) {
         };
     }
 
+    const originalGetOutputPos = nodeType.prototype.getOutputPos;
+    if (typeof originalGetOutputPos === "function") {
+        nodeType.prototype.getOutputPos = function (slotIndex, out) {
+            if (this.__soPromptDashboardReady) {
+                const anchor = promptOutputAnchor(this, slotIndex);
+                if (anchor) {
+                    const result = out || [0, 0];
+                    result[0] = Number(this.pos?.[0] || 0) + anchor.x;
+                    result[1] = Number(this.pos?.[1] || 0) + anchor.y;
+                    return result;
+                }
+            }
+            return originalGetOutputPos.apply(this, arguments);
+        };
+    }
+
     const originalForeground = nodeType.prototype.onDrawForeground;
     nodeType.prototype.onDrawForeground = function (ctx) {
+        drawStudioChrome(this, ctx, "prompt");
         try { originalForeground?.apply(this, arguments); } catch (error) {}
         drawPromptDashboard(this, ctx);
     };
@@ -1860,6 +2660,7 @@ function applyLayout(node) {
 
     // Keep all existing backend/frontend mechanics alive; the dashboard merely
     // becomes the visible interface over those stable values.
+    healMissingLogSelections(node);
     createCopyButtons(node);
     bindTokenCallbacks(node);
     for (const base of STREAM_BASES) ensureStreamIndexPreview(node, base);
@@ -1885,13 +2686,15 @@ app.registerExtension({
 
         const originalSerialize = nodeType.prototype.serialize;
         nodeType.prototype.serialize = function () {
+            syncTriggerOverrideScope(this);
+            healMissingLogSelections(this);
             const data = originalSerialize?.apply(this, arguments) || {};
             data.properties = {
                 ...(data.properties || {}),
                 so_prompt_core_schema_version: SCHEMA_VERSION,
             };
             // Copy buttons are frontend decoration. Always serialize only the
-            // 33 canonical backend widgets, in backend order, with no null
+            // canonical backend widgets, in backend order, with no null
             // button placeholders.
             data.widgets_values = CANONICAL_NAMES.map((name) => {
                 const target = widget(this, name);
@@ -1914,6 +2717,9 @@ app.registerExtension({
             const result = originalConfigure?.apply(this, arguments);
             const stored = this.properties?.so_saved_final_prompt;
             if (stored != null && stored !== "") setTextWidget(this, "saved_prompt", stored);
+            if (this.properties?.so_last_assembly_status && typeof this.properties.so_last_assembly_status === "object") {
+                this.__soLastAssembly = this.properties.so_last_assembly_status;
+            }
             applyLayout(this);
             setTimeout(() => applyLayout(this), 0);
             return result;
@@ -1928,6 +2734,13 @@ app.registerExtension({
                 this.properties = this.properties || {};
                 this.properties.so_saved_final_prompt = String(resolved);
                 setTextWidget(this, "saved_prompt", resolved);
+            }
+            let assembly = message?.assembly_status;
+            if (Array.isArray(assembly)) assembly = assembly[0];
+            if (assembly && typeof assembly === "object") {
+                this.__soLastAssembly = assembly;
+                this.properties = this.properties || {};
+                this.properties.so_last_assembly_status = assembly;
             }
             updateCopyButtons(this);
             applyLayout(this);

@@ -1,0 +1,481 @@
+:root {
+  --solo-bg: #0d0a12;
+  --solo-panel: #17131f;
+  --solo-panel-2: #201a2b;
+  --solo-border: #3a3049;
+  --solo-text: #f7f2fb;
+  --solo-muted: #a79bb3;
+  --solo-faint: #756a80;
+  --solo-pink: #ff3eaf;
+  --solo-cyan: #48e8ee;
+  --solo-violet: #9c62ff;
+  --solo-yellow: #f4ec51;
+  --solo-green: #69e49a;
+  --solo-red: #ff5b71;
+}
+
+.solo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--solo-text);
+  background: rgba(5, 3, 8, .82);
+  backdrop-filter: blur(12px);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.solo-overlay[hidden] { display: none !important; }
+
+.solo-shell {
+  box-sizing: border-box;
+  width: min(2560px, calc(100vw - 32px));
+  height: min(1800px, calc(100vh - 32px));
+  min-width: min(780px, calc(100vw - 32px));
+  min-height: min(620px, calc(100vh - 32px));
+  display: grid;
+  grid-template-rows: 112px minmax(0, 1fr) 94px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 62, 175, .42);
+  border-radius: 22px;
+  background: var(--solo-bg);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, .62), 0 0 42px rgba(255, 62, 175, .14);
+}
+
+.solo-header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 13px 18px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(72, 232, 238, .24);
+  background-color: #120e19;
+  background-image: linear-gradient(90deg, rgba(10, 7, 14, .16), rgba(10, 7, 14, .72)), var(--solo-header-texture);
+  background-size: cover;
+  background-position: center;
+}
+
+.solo-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0 45%, rgba(13, 10, 18, .54) 74%, rgba(13, 10, 18, .88));
+}
+
+.solo-branding {
+  position: relative;
+  z-index: 1;
+  width: min(620px, 55vw);
+  height: 84px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.solo-header-meta {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.solo-pill {
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--solo-pill-color, var(--solo-cyan)) 52%, transparent);
+  border-radius: 999px;
+  color: var(--solo-pill-color, var(--solo-cyan));
+  background: color-mix(in srgb, var(--solo-pill-color, var(--solo-cyan)) 9%, #120e19);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.solo-icon-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--solo-border);
+  border-radius: 10px;
+  color: var(--solo-text);
+  background: rgba(15, 11, 20, .75);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.solo-icon-button:hover { border-color: var(--solo-pink); color: var(--solo-pink); }
+
+.solo-body {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 236px 55px minmax(0, 1fr);
+  gap: 10px;
+  padding: 13px 18px 14px;
+  background: radial-gradient(circle at 80% 0, rgba(156, 98, 255, .075), transparent 34%), var(--solo-bg);
+}
+
+.solo-command-deck {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.solo-card {
+  position: relative;
+  min-width: 0;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid var(--solo-border);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(32, 26, 43, .98), rgba(20, 16, 27, .98));
+}
+
+.solo-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--solo-accent, var(--solo-pink));
+  box-shadow: 0 0 18px var(--solo-accent, var(--solo-pink));
+}
+
+.solo-card-title {
+  margin: 0 0 10px;
+  color: var(--solo-accent, var(--solo-pink));
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.solo-rules { display: grid; gap: 7px; }
+
+.solo-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 20px;
+  color: #dfd8e7;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.solo-check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--solo-pink);
+}
+
+.solo-library-card {
+  display: grid;
+  grid-template-rows: auto 45px minmax(0, 1fr) 12px 24px;
+  gap: 8px;
+}
+
+.solo-folder-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.solo-label { color: var(--solo-muted); font-size: 12px; }
+
+.solo-input,
+.solo-table-input,
+.solo-search,
+.solo-view-mode {
+  min-width: 0;
+  border: 1px solid #463954;
+  border-radius: 9px;
+  outline: none;
+  color: var(--solo-text);
+  background: #0f0c14;
+  font: inherit;
+}
+
+.solo-input { height: 34px; padding: 0 10px; }
+.solo-input:focus, .solo-table-input:focus, .solo-search:focus, .solo-view-mode:focus { border-color: var(--solo-cyan); box-shadow: 0 0 0 2px rgba(72, 232, 238, .1); }
+
+.solo-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.solo-button {
+  min-height: 34px;
+  padding: 7px 13px;
+  border: 1px solid color-mix(in srgb, var(--solo-button-color, var(--solo-cyan)) 55%, #30263a);
+  border-radius: 10px;
+  color: var(--solo-button-color, var(--solo-cyan));
+  background: color-mix(in srgb, var(--solo-button-color, var(--solo-cyan)) 7%, #17131f);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+}
+
+.solo-button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.16); box-shadow: 0 6px 20px rgba(0, 0, 0, .24); }
+.solo-button:active:not(:disabled) { transform: translateY(0); }
+.solo-button:disabled { opacity: .38; cursor: default; filter: grayscale(.25); }
+.solo-button.solo-filled { color: #140c16; background: var(--solo-button-color, var(--solo-pink)); border-color: var(--solo-button-color, var(--solo-pink)); }
+
+.solo-progress-track {
+  overflow: hidden;
+  border: 1px solid #342a40;
+  border-radius: 999px;
+  background: #0b0910;
+}
+
+.solo-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--solo-pink), var(--solo-violet), var(--solo-cyan));
+  box-shadow: 0 0 14px rgba(72, 232, 238, .45);
+  transition: width .18s ease;
+}
+
+.solo-status {
+  overflow: hidden;
+  color: var(--solo-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solo-preview-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.solo-mode-title { margin: 0; font-size: 16px; font-weight: 780; }
+.solo-mode-subtitle { min-width: 0; flex: 1; overflow: hidden; color: var(--solo-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.solo-search { width: 220px; height: 32px; padding: 0 9px; }
+.solo-view-mode { width: 154px; height: 32px; padding: 0 8px; }
+.solo-page-text { color: var(--solo-muted); font-size: 11px; white-space: nowrap; }
+
+.solo-grid-card {
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--solo-border);
+  border-radius: 14px;
+  background: #100d16;
+}
+
+.solo-table-wrap { width: 100%; height: 100%; overflow: auto; }
+.solo-table {
+  width: 100%;
+  min-width: var(--solo-table-min-width, 1100px);
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 11px;
+}
+.solo-table th {
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 9px 8px;
+  border-bottom: 1px solid #443650;
+  color: #d8cfe0;
+  background: #1c1625;
+  font-weight: 760;
+  text-align: left;
+  white-space: nowrap;
+}
+.solo-table td {
+  box-sizing: border-box;
+  max-width: 340px;
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(58, 48, 73, .58);
+  color: #cbc2d3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.solo-table tbody tr:nth-child(even) td { background: rgba(255, 255, 255, .015); }
+.solo-table tbody tr:hover td { background: rgba(72, 232, 238, .055); }
+.solo-table tbody tr.solo-selected td { background: rgba(255, 62, 175, .075); }
+.solo-table td.solo-empty-state {
+  padding: 28px 18px;
+  color: var(--solo-muted);
+  text-align: center;
+}
+.solo-table tbody tr[data-state="ready"] td:last-child { color: var(--solo-green); }
+.solo-table tbody tr[data-state="conflict"] td:last-child,
+.solo-table tbody tr[data-state="failed"] td:last-child { color: var(--solo-red); }
+.solo-table tbody tr[data-state="keeper"] td { color: var(--solo-green); }
+.solo-table tbody tr[data-state="warning"] td:last-child { color: var(--solo-yellow); }
+.solo-table input[type="checkbox"] { accent-color: var(--solo-pink); }
+.solo-table-input { box-sizing: border-box; width: 100%; height: 27px; padding: 0 7px; font-size: 11px; }
+.solo-path-cell { max-width: 310px !important; }
+.solo-status-cell { max-width: 440px !important; }
+
+.solo-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid #342a40;
+  background: linear-gradient(180deg, #17131f, #100d16);
+}
+.solo-footer-message { min-width: 0; flex: 1; color: var(--solo-muted); font-size: 12px; }
+
+.solo-submodal {
+  position: fixed;
+  inset: 0;
+  z-index: 100002;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(5, 3, 8, .78);
+  backdrop-filter: blur(8px);
+}
+.solo-submodal[hidden] { display: none; }
+.solo-modal-card {
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(700px, calc(100vh - 48px));
+  display: grid;
+  gap: 13px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(156, 98, 255, .58);
+  border-radius: 17px;
+  background: #17131f;
+  box-shadow: 0 24px 90px rgba(0, 0, 0, .62);
+}
+.solo-modal-title { margin: 0; font-size: 17px; }
+.solo-modal-copy { margin: 0; color: var(--solo-muted); font-size: 12px; line-height: 1.55; white-space: pre-line; }
+.solo-modal-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.solo-settings-grid { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; align-items: center; }
+.solo-browser-roots { display: flex; gap: 6px; flex-wrap: wrap; }
+.solo-browser-list { min-height: 160px; max-height: 390px; overflow: auto; border: 1px solid var(--solo-border); border-radius: 10px; background: #0f0c14; }
+.solo-browser-item { display: block; width: 100%; padding: 8px 10px; border: 0; border-bottom: 1px solid #2c2435; color: #d8cfe0; background: transparent; text-align: left; cursor: pointer; }
+.solo-browser-item:hover { color: var(--solo-cyan); background: rgba(72, 232, 238, .06); }
+
+.solo-sidebar-card {
+  height: 100%;
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  color: var(--solo-text);
+  background: var(--solo-panel);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.solo-sidebar-brand { width: 100%; max-height: 76px; object-fit: contain; object-position: left; }
+.solo-sidebar-heading { display: flex; align-items: center; gap: 11px; }
+.solo-sidebar-mark { width: 58px; height: 58px; object-fit: contain; }
+.solo-sidebar-title { color: var(--solo-text); font-size: 15px; font-weight: 820; line-height: 1.12; }
+.solo-sidebar-copy { color: var(--solo-muted); font-size: 12px; line-height: 1.5; }
+
+@media (max-width: 1000px) {
+  .solo-shell { min-width: min(720px, calc(100vw - 20px)); }
+  .solo-command-deck { grid-template-columns: 285px minmax(0, 1fr); }
+  .solo-search { width: 150px; }
+  .solo-pill:first-child { display: none; }
+}
+
+/* SOLO Log Organizer additions. The shared SOLO selectors intentionally keep
+   this node visually identical to the LoRA Organizer. */
+.solo-log-shell { grid-template-rows: 112px minmax(0, 1fr) 72px; }
+.solo-log-branding { width: min(700px, 62vw); }
+.solo-log-body {
+  grid-template-rows: 250px 48px minmax(190px, 1fr) 200px;
+  gap: 9px;
+}
+.solo-log-overlay .solo-command-deck { grid-template-columns: 360px minmax(0, 1fr); }
+.solo-log-overlay .solo-rules { gap: 4px; }
+.solo-log-overlay .solo-check { min-height: 17px; font-size: 11px; }
+.solo-log-overlay .solo-library-card {
+  grid-template-rows: auto 38px auto minmax(30px, 1fr) 12px 24px;
+}
+.solo-log-note {
+  align-self: stretch;
+  display: grid;
+  align-content: center;
+  padding: 9px 11px;
+  border: 1px solid rgba(156, 98, 255, .25);
+  border-radius: 10px;
+  color: var(--solo-muted);
+  background: rgba(156, 98, 255, .045);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.solo-log-note b { color: var(--solo-violet); }
+.solo-log-inspector {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.solo-log-sample {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 31px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--solo-border);
+  border-radius: 13px;
+  background: #100d16;
+}
+.solo-log-sample h3 {
+  margin: 0;
+  padding: 9px 11px 7px;
+  border-bottom: 1px solid rgba(58, 48, 73, .65);
+  color: var(--solo-cyan);
+  background: #1a1522;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.solo-log-sample:last-child h3 { color: var(--solo-green); }
+.solo-log-sample pre {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  color: #cbc2d3;
+  font: 11px/1.48 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.solo-table tbody tr[data-state="duplicate"] td { color: #d8b4ff; background: rgba(156, 98, 255, .045); }
+.solo-table tbody tr[data-state="duplicate"] td:last-child { color: var(--solo-pink); }
+.solo-table tbody tr[data-state="master"] td { color: #b8f8fb; }
+.solo-table tbody tr[data-state="master"] td:last-child { color: var(--solo-cyan); }
+
+@media (max-height: 820px) {
+  .solo-log-body { grid-template-rows: 225px 44px minmax(180px, 1fr); }
+  .solo-log-inspector { display: none; }
+  .solo-log-overlay .solo-library-card { grid-template-rows: auto 35px auto minmax(22px, 1fr) 10px 20px; }
+}
+
+@media (max-width: 1000px) {
+  .solo-log-overlay .solo-command-deck { grid-template-columns: 300px minmax(0, 1fr); }
+  .solo-log-inspector { grid-template-columns: 1fr; }
+  .solo-log-sample:first-child { display: none; }
+}

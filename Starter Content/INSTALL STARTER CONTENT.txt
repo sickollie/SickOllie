@@ -1,40 +1,40 @@
-SICK OLLIE v2 STARTER CONTENT
+SICK OLLIE CREATOR STUDIO + TOOLKIT — STARTER CONTENT
 
 WORKFLOWS
 ---------
-Open or drag either workflow into ComfyUI:
+Drag either current workflow onto the ComfyUI canvas:
 
-    Starter Content/workflows/Sick Nodes v2_Classic.json
     Starter Content/workflows/Sick Nodes v2_Studio.json
+    Starter Content/workflows/Sick Nodes v2_Classic.json
 
-Classic uses the familiar explicit-wiring workflow.
-Studio uses the redesigned dashboard nodes and Auto Context.
+    SickOllie_NodePack.json
+    is a convenience copy of the current Studio starter.
 
-The example workflows contain model, text-encoder, VAE, and LoRA selections
-from the test system. Reassign any files that are not installed locally.
+The workflows are already wired. Select model, text-encoder, VAE, and LoRA
+files installed on your machine before queueing.
 
-PROMPT / OUTFIT / SCENE LOGS
-----------------------------
+PROMPT AND OUTFIT LOGS
+----------------------
 Copy this folder:
 
     Starter Content/input/SickOllieLogs
 
-into the ComfyUI input folder so the final path is:
+into your ComfyUI input folder so the final path is:
 
     ComfyUI/input/SickOllieLogs
 
 The included library contains:
-- 5 prompt-log files
-- 6 outfit-log files
-- 1 scene-log file
+- prompt-log examples, including placeholder-driven templates
+- six outfit-log files
+- one scene-insert log
 
 After copying the logs:
 1. Restart ComfyUI.
-2. Hard-refresh the browser if it was already open.
-3. Open Prompt Core and select the desired log.
+2. Hard-refresh the browser with Ctrl+F5.
+3. Reopen Prompt Core and select the desired log from its dropdown.
 
 DOCUMENTATION
 -------------
-The v2 reference guide is located at:
-
-    docs/Sick_Ollie_Classic_Studio_v2_Reference_Guide.pdf
+Start with README.md for the current release. The PDFs and workflow map in
+docs/ are retained as legacy visual references and may not show every current
+Studio, Library, Recipe, or Organizer feature.

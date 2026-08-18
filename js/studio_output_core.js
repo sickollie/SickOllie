@@ -1,22 +1,34 @@
 import { app } from "../../../scripts/app.js";
+// Explicit import: some ComfyUI builds only load frontend files reached from a
+// registered Studio extension. This keeps the Recipe Catalog discoverable.
+import "./solo_recipe_catalog.js";
+import "./solo_library_review.js";
+import {
+    STUDIO_LAYOUT,
+    STUDIO_THEME,
+    applyStudioNodeColors,
+    drawStudioChrome,
+    drawStudioSectionFrame,
+} from "./studio_theme.js";
 
 const TARGET = "SOOutputBuilderSaveStudio";
-const MIN_WIDTH = 820;
-const PAD = 12;
-const ROW_H = 36;
-const GAP = 8;
+const MIN_WIDTH = STUDIO_LAYOUT.minWidth;
+const PAD = STUDIO_LAYOUT.pad;
+const ROW_H = STUDIO_LAYOUT.rowHeight;
+const GAP = STUDIO_LAYOUT.gap;
+const SECTION_GAP = STUDIO_LAYOUT.sectionGap;
 
 const CMYKG = {
-    cyan: "#35d7ff",
-    magenta: "#ff4ab8",
-    yellow: "#f6e65a",
-    green: "#6ee7a2",
-    text: "#f0f0f3",
-    muted: "#9a9aa3",
-    row: "rgba(34,34,39,.97)",
-    rowHover: "rgba(43,43,50,.98)",
-    outline: "rgba(142,142,156,.30)",
-    black: "#000000",
+    cyan: STUDIO_THEME.cyan,
+    magenta: STUDIO_THEME.magenta,
+    yellow: STUDIO_THEME.yellow,
+    green: STUDIO_THEME.green,
+    text: STUDIO_THEME.text,
+    muted: STUDIO_THEME.label,
+    row: STUDIO_THEME.row,
+    rowHover: STUDIO_THEME.rowHover,
+    outline: STUDIO_THEME.outline,
+    black: STUDIO_THEME.body,
 };
 
 const NONE = "[None]";
@@ -177,10 +189,8 @@ function roundRect(ctx, x, y, w, h, radius = 8, fill = null, stroke = null) {
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
 }
 
-function gradientFrame(ctx, x, y, w, h, radius = 9, alpha = .44) {
-    ctx.save(); const g = ctx.createLinearGradient(x, y, x + w, y + h);
-    g.addColorStop(0, CMYKG.cyan); g.addColorStop(.34, CMYKG.magenta); g.addColorStop(.67, CMYKG.yellow); g.addColorStop(1, CMYKG.green);
-    ctx.globalAlpha = alpha; roundRect(ctx, x, y, w, h, radius, "rgba(9,9,12,.18)", g); ctx.restore();
+function gradientFrame(ctx, x, y, w, h, radius = 9, alpha = .44, accent = CMYKG.magenta) {
+    drawStudioSectionFrame(ctx, x, y, w, h, accent, radius, alpha);
 }
 
 function text(ctx, value, x, y, options = {}) {
@@ -389,7 +399,7 @@ function inputDisplayLabel(name) {
 
 function layoutInputSockets(node) {
     node.__soOutputInputAnchors = {};
-    let y = 48;
+    let y = STUDIO_LAYOUT.socketStart;
     for (const input of node.inputs || []) {
         const name = outputInputName(input);
         if (!name) continue;
@@ -407,23 +417,34 @@ function layoutInputSockets(node) {
     return y;
 }
 
+function layoutOutputSockets(node) {
+    const right = Number(node.size?.[0] || MIN_WIDTH);
+    for (let index = 0; index < (node.outputs?.length || 0); index++) {
+        node.outputs[index].pos = [right, STUDIO_LAYOUT.socketStart + index * STUDIO_LAYOUT.socketStep];
+    }
+}
+
 function visibleInputCount(node) {
     return (node.inputs || []).filter((input) => shouldExposeInput(input)).length;
 }
 
 function inputBottom(node) {
     const count = visibleInputCount(node);
-    return count ? 48 + count * 21 + 5 : 44;
+    return count ? STUDIO_LAYOUT.socketStart + count * STUDIO_LAYOUT.socketStep + 5 : STUDIO_LAYOUT.headerHeight;
 }
 
 function outputBottom(node) {
+    layoutOutputSockets(node);
     const count = node.outputs?.length || 0;
-    return count ? 48 + count * 21 + 5 : 44;
+    return count ? STUDIO_LAYOUT.socketStart + count * STUDIO_LAYOUT.socketStep + 5 : STUDIO_LAYOUT.headerHeight;
 }
 
 function dashboardTop(node) {
     layoutInputSockets(node);
-    return Math.max(94, Math.max(inputBottom(node), outputBottom(node)) + 8);
+    return Math.max(
+        STUDIO_LAYOUT.headerHeight + STUDIO_LAYOUT.socketGap,
+        Math.max(inputBottom(node), outputBottom(node)) + STUDIO_LAYOUT.socketGap,
+    );
 }
 
 function connectedInput(node, name) {
@@ -445,6 +466,15 @@ function inputAnchor(node, slotIndex) {
     return { x: y < 0 ? -10000 : 0, y };
 }
 
+function outputAnchor(node, slotIndex) {
+    const output = node.outputs?.[Number(slotIndex)];
+    if (!output) return null;
+    layoutOutputSockets(node);
+    const y = Number(output.pos?.[1]);
+    if (!Number.isFinite(y)) return null;
+    return { x: Number(node.size?.[0] || MIN_WIDTH), y };
+}
+
 function dashboardHeight() {
     // location + subfolder + filename + file/metadata + resolved + save path
     return 17 + ROW_H + GAP + 30 + 13 +
@@ -452,11 +482,12 @@ function dashboardHeight() {
         17 + ROW_H * 3 + GAP * 2 + 13 +
         17 + ROW_H * 2 + GAP + 13 +
         17 + ROW_H * 3 + GAP * 2 + 13 +
-        17 + 64 + 12;
+        17 + 64 + 12 + SECTION_GAP * 5;
 }
 
 function layout(node, refit = false) {
-    node.bgcolor = CMYKG.black;
+    applyStudioNodeColors(node);
+    layoutOutputSockets(node);
     node.size[0] = Math.max(Number(node.size?.[0] || 0), MIN_WIDTH);
     const desired = dashboardTop(node) + dashboardHeight() + 18;
     if (refit) node.size[1] = desired;
@@ -482,7 +513,7 @@ function drawDashboard(node, ctx) {
     let y = dashboardTop(node);
     ctx.save();
 
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 104, 9, .42);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 104, 9, .42, CMYKG.cyan);
     section(ctx, "Destination", x + 2, y + 7, CMYKG.cyan);
     y += 17;
     valueRow(ctx, x, y, w, ROW_H, "Output root", widget(node, "output_root")?.value ?? "");
@@ -491,9 +522,9 @@ function drawDashboard(node, ctx) {
     roundRect(ctx, x, y, w, 30, 7, "rgba(53,215,255,.045)", "rgba(53,215,255,.24)");
     text(ctx, "AUTO CONTEXT", x + 11, y + 15, { color: CMYKG.cyan, font: "700 10px Segoe UI, Arial" });
     text(ctx, `Loader + Prompt + Generation · ${saveInputMode(node)}`, x + w - 11, y + 15, { align: "right", color: CMYKG.muted, font: "10px Segoe UI, Arial" });
-    y += 30 + 13;
+    y += 30 + 13 + SECTION_GAP;
 
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 154, 9, .42);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 154, 9, .42, CMYKG.magenta);
     section(ctx, "Subfolder recipe", x + 2, y + 7, CMYKG.magenta);
     y += 17;
     valueRow(ctx, x, y, half, ROW_H, "Literal", widget(node, "subfolder_literal")?.value ?? "", { chevron: false });
@@ -510,9 +541,9 @@ function drawDashboard(node, ctx) {
     roundRect(ctx, x, y, w, ROW_H, 7, "rgba(255,74,184,.055)", "rgba(255,74,184,.22)");
     text(ctx, "Resolved recipe", x + 11, y + ROW_H / 2, { color: CMYKG.muted, font: "11px Segoe UI, Arial" });
     text(ctx, fitText(ctx, recipePreview("subfolder_literal", ["subfolder_var_1", "subfolder_var_2", "subfolder_var_3", "subfolder_var_4"], "subfolder_delimiter", node), w - 150), x + w - 11, y + ROW_H / 2, { align: "right", color: CMYKG.magenta, font: "11px Segoe UI, Arial" });
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 154, 9, .42);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 154, 9, .42, CMYKG.yellow);
     section(ctx, "Filename recipe", x + 2, y + 7, CMYKG.yellow);
     y += 17;
     valueRow(ctx, x, y, half, ROW_H, "Literal", widget(node, "filename_literal")?.value ?? "", { chevron: false });
@@ -531,9 +562,9 @@ function drawDashboard(node, ctx) {
         valueRow(ctx, px, y, third, ROW_H, `Var ${index + 4}`, widget(node, name)?.value ?? NONE);
         hit(node, name, px, y, third, ROW_H, () => openChoice(node, `Filename variable ${index + 4}`, name, readValues(widget(node, name))));
     });
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 110, 9, .42);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 110, 9, .42, CMYKG.green);
     section(ctx, "File + metadata", x + 2, y + 7, CMYKG.green);
     y += 17;
     valueRow(ctx, x, y, third, ROW_H, "Format", widget(node, "extension")?.value ?? "png");
@@ -554,9 +585,9 @@ function drawDashboard(node, ctx) {
         toggleRow(ctx, px, y, third, ROW_H, label, active, CMYKG.green);
         hit(node, name, px, y, third, ROW_H, () => setWidgetValue(node, name, !active));
     });
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 154, 9, .42);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 154, 9, .42, CMYKG.cyan);
     section(ctx, "Resolved inputs", x + 2, y + 7, CMYKG.cyan);
     text(ctx, "click to copy", x + w - 2, y + 7, { align: "right", color: CMYKG.muted, font: "10px Segoe UI, Arial" });
     y += 17;
@@ -590,9 +621,9 @@ function drawDashboard(node, ctx) {
             }
         });
     });
-    y += ROW_H * 3 + GAP * 2 + 13;
+    y += ROW_H * 3 + GAP * 2 + 13 + SECTION_GAP;
 
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 84, 9, .42);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 86, 9, .42, CMYKG.magenta);
     section(ctx, "Last save", x + 2, y + 7, CMYKG.magenta);
     y += 17;
     const pathValue = shortenSavedPath(widget(node, "saved_path")?.value ?? node.properties?.so_saved_output_path ?? "");
@@ -626,7 +657,7 @@ function applyStoredState(node, properties = {}) {
 function installDashboard(node) {
     node.properties = node.properties || {};
     node.__soOutputDashboardReady = true;
-    node.bgcolor = CMYKG.black;
+    applyStudioNodeColors(node);
     layoutInputSockets(node);
     for (const target of node.widgets || []) hideNativeWidget(target);
     clearInlineImagePreview(node);
@@ -644,6 +675,17 @@ app.registerExtension({
                 let slotIndex = typeof slot === "number" ? slot : this.findInputSlot?.(slot);
                 if (!Number.isInteger(slotIndex) || slotIndex < 0) slotIndex = Number(slot);
                 const anchor = inputAnchor(this, slotIndex);
+                if (anchor) {
+                    const result = out || [0, 0];
+                    result[0] = Number(this.pos?.[0] || 0) + anchor.x;
+                    result[1] = Number(this.pos?.[1] || 0) + anchor.y;
+                    return result;
+                }
+            }
+            if (!isInput && this.__soOutputDashboardReady) {
+                let slotIndex = typeof slot === "number" ? slot : this.findOutputSlot?.(slot);
+                if (!Number.isInteger(slotIndex) || slotIndex < 0) slotIndex = Number(slot);
+                const anchor = outputAnchor(this, slotIndex);
                 if (anchor) {
                     const result = out || [0, 0];
                     result[0] = Number(this.pos?.[0] || 0) + anchor.x;
@@ -670,6 +712,22 @@ app.registerExtension({
             };
         }
 
+        const originalGetOutputPos = nodeType.prototype.getOutputPos;
+        if (typeof originalGetOutputPos === "function") {
+            nodeType.prototype.getOutputPos = function (slotIndex, out) {
+                if (this.__soOutputDashboardReady) {
+                    const anchor = outputAnchor(this, slotIndex);
+                    if (anchor) {
+                        const result = out || [0, 0];
+                        result[0] = Number(this.pos?.[0] || 0) + anchor.x;
+                        result[1] = Number(this.pos?.[1] || 0) + anchor.y;
+                        return result;
+                    }
+                }
+                return originalGetOutputPos.apply(this, arguments);
+            };
+        }
+
         const originalCreated = nodeType.prototype.onNodeCreated;
         const originalConfigured = nodeType.prototype.onConfigure;
         const originalExecuted = nodeType.prototype.onExecuted;
@@ -682,7 +740,7 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function () {
             const result = originalCreated?.apply(this, arguments);
             this.properties = this.properties || {};
-            this.bgcolor = CMYKG.black;
+            applyStudioNodeColors(this);
             setTimeout(() => installDashboard(this), 0);
             return result;
         };
@@ -690,7 +748,7 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function (info) {
             const result = originalConfigured?.apply(this, arguments);
             this.properties = this.properties || {};
-            this.bgcolor = CMYKG.black;
+            applyStudioNodeColors(this);
             applyStoredState(this, info?.properties || this.properties);
             setTimeout(() => installDashboard(this), 0);
             return result;
@@ -708,6 +766,7 @@ app.registerExtension({
                 setWidgetValue(this, "saved_path", savedPath);
                 this.properties = this.properties || {};
                 this.properties.so_saved_output_path = savedPath;
+                window.dispatchEvent(new CustomEvent("sickollie:library-usage-updated", { detail: { savedPath } }));
             }
             this.__soResolvedValues = normalizeResolvedValues(message?.resolved_values);
             this.properties = this.properties || {};
@@ -733,6 +792,7 @@ app.registerExtension({
         };
 
         nodeType.prototype.onDrawForeground = function (ctx) {
+            drawStudioChrome(this, ctx, "output");
             drawDashboard(this, ctx);
         };
 

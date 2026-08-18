@@ -117,9 +117,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "links": [
-            932
-          ]
+          "links": null
         },
         {
           "name": "save_path",
@@ -189,53 +187,6 @@
         null,
         null,
         "output\\_SickOllie_kit\\no\\no_lora_SICK OLLIE_Krea2_FP8_192459_00001.png"
-      ],
-      "color": "#222",
-      "bgcolor": "#000"
-    },
-    {
-      "id": 484,
-      "type": "SOFitPreview",
-      "pos": [
-        2231.1169111034155,
-        3530
-      ],
-      "size": [
-        1582.04034310734,
-        2667.801938190678
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 932
-        }
-      ],
-      "outputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "SOFitPreview",
-        "so_fit_preview_images": [
-          {
-            "filename": "SickOllieFitPreview_temp_ugmyx_00001_.png",
-            "type": "temp",
-            "subfolder": ""
-          }
-        ],
-        "so_fit_preview_index": 0
-      },
-      "widgets_values": [
-        "Contain + Upscale",
-        "Blurred Image",
-        "#000000"
       ],
       "color": "#222",
       "bgcolor": "#000"
@@ -750,14 +701,6 @@
       482,
       0,
       "MODEL"
-    ],
-    [
-      932,
-      457,
-      0,
-      484,
-      0,
-      "IMAGE"
     ],
     [
       943,

@@ -1,24 +1,32 @@
 import { app } from "../../../scripts/app.js";
+import {
+    STUDIO_LAYOUT,
+    STUDIO_THEME,
+    applyStudioNodeColors,
+    drawStudioChrome,
+    drawStudioSectionFrame,
+} from "./studio_theme.js";
 
 const TARGET = "SOGenerationPipelineStudio";
 const SCHEMA_VERSION = 40;
 const SEED_MAX = 1125899906842624;
-const MIN_WIDTH = 800;
-const PAD = 12;
-const ROW_H = 38;
-const GAP = 8;
+const MIN_WIDTH = STUDIO_LAYOUT.minWidth;
+const PAD = STUDIO_LAYOUT.pad;
+const ROW_H = STUDIO_LAYOUT.rowHeight;
+const GAP = STUDIO_LAYOUT.gap;
+const SECTION_GAP = STUDIO_LAYOUT.sectionGap;
 
 const CMYKG = {
-    cyan: "#35d7ff",
-    magenta: "#ff4ab8",
-    yellow: "#f6e65a",
-    green: "#6ee7a2",
-    text: "#f0f0f3",
-    muted: "#9a9aa3",
-    row: "rgba(34,34,39,.97)",
-    rowHover: "rgba(43,43,50,.98)",
-    outline: "rgba(142,142,156,.30)",
-    black: "#000000",
+    cyan: STUDIO_THEME.cyan,
+    magenta: STUDIO_THEME.magenta,
+    yellow: STUDIO_THEME.yellow,
+    green: STUDIO_THEME.green,
+    text: STUDIO_THEME.text,
+    muted: STUDIO_THEME.label,
+    row: STUDIO_THEME.row,
+    rowHover: STUDIO_THEME.rowHover,
+    outline: STUDIO_THEME.outline,
+    black: STUDIO_THEME.body,
 };
 
 const CLIP_TYPES = new Set([
@@ -86,6 +94,13 @@ function setWidgetValue(node, name, value) {
     target.value = value;
     try { target.callback?.(value); } catch (error) {}
     node.setDirtyCanvas?.(true, true);
+}
+
+function swapCustomDimensions(node) {
+    const width = Number(widget(node, "custom_width")?.value ?? 1440);
+    const height = Number(widget(node, "custom_height")?.value ?? 1920);
+    setWidgetValue(node, "custom_width", height);
+    setWidgetValue(node, "custom_height", width);
 }
 
 function hideNativeWidget(target) {
@@ -193,10 +208,8 @@ function roundRect(ctx, x, y, w, h, radius = 8, fill = null, stroke = null) {
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
 }
 
-function gradientFrame(ctx, x, y, w, h, radius = 9, alpha = .44) {
-    ctx.save(); const g = ctx.createLinearGradient(x, y, x + w, y + h);
-    g.addColorStop(0, CMYKG.cyan); g.addColorStop(.34, CMYKG.magenta); g.addColorStop(.67, CMYKG.yellow); g.addColorStop(1, CMYKG.green);
-    ctx.globalAlpha = alpha; roundRect(ctx, x, y, w, h, radius, "rgba(9,9,12,.18)", g); ctx.restore();
+function gradientFrame(ctx, x, y, w, h, radius = 9, alpha = .44, accent = CMYKG.magenta) {
+    drawStudioSectionFrame(ctx, x, y, w, h, accent, radius, alpha);
 }
 
 function text(ctx, value, x, y, options = {}) {
@@ -374,7 +387,7 @@ function generationShouldExposeInput(input) {
 
 function layoutGenerationInputSockets(node) {
     node.__soGenerationInputAnchors = {};
-    let y = 48;
+    let y = STUDIO_LAYOUT.socketStart;
     for (const input of node.inputs || []) {
         const name = generationInputName(input);
         if (!name) continue;
@@ -395,18 +408,26 @@ function layoutGenerationInputSockets(node) {
     return y;
 }
 
+function layoutGenerationOutputSockets(node) {
+    const right = Number(node.size?.[0] || MIN_WIDTH);
+    for (let index = 0; index < (node.outputs?.length || 0); index++) {
+        node.outputs[index].pos = [right, STUDIO_LAYOUT.socketStart + index * STUDIO_LAYOUT.socketStep];
+    }
+}
+
 function generationVisibleInputCount(node) {
     return (node.inputs || []).filter((input) => generationShouldExposeInput(input)).length;
 }
 
 function generationOutputBottom(node) {
+    layoutGenerationOutputSockets(node);
     const count = node.outputs?.length || 0;
-    return count ? 48 + count * 21 + 5 : 44;
+    return count ? STUDIO_LAYOUT.socketStart + count * STUDIO_LAYOUT.socketStep + 5 : STUDIO_LAYOUT.headerHeight;
 }
 
 function generationInputBottom(node) {
     const count = generationVisibleInputCount(node);
-    return count ? 48 + count * 21 + 5 : 44;
+    return count ? STUDIO_LAYOUT.socketStart + count * STUDIO_LAYOUT.socketStep + 5 : STUDIO_LAYOUT.headerHeight;
 }
 
 function generationInputAnchor(node, slotIndex) {
@@ -416,6 +437,15 @@ function generationInputAnchor(node, slotIndex) {
     const y = Number(node.__soGenerationInputAnchors?.[name]);
     if (!Number.isFinite(y)) return null;
     return { x: y < 0 ? -10000 : 0, y };
+}
+
+function generationOutputAnchor(node, slotIndex) {
+    const output = node.outputs?.[Number(slotIndex)];
+    if (!output) return null;
+    layoutGenerationOutputSockets(node);
+    const y = Number(output.pos?.[1]);
+    if (!Number.isFinite(y)) return null;
+    return { x: Number(node.size?.[0] || MIN_WIDTH), y };
 }
 
 function resolvedDimensions(node) {
@@ -435,7 +465,11 @@ function dashboardTop(node) {
     // share the upper-right area with inputs on the left, so there is no need
     // to reserve space for stale converted-widget inputs.
     layoutGenerationInputSockets(node);
-    return Math.max(92, Math.max(generationInputBottom(node), generationOutputBottom(node)) + 8);
+    layoutGenerationOutputSockets(node);
+    return Math.max(
+        STUDIO_LAYOUT.headerHeight + STUDIO_LAYOUT.socketGap,
+        Math.max(generationInputBottom(node), generationOutputBottom(node)) + STUDIO_LAYOUT.socketGap,
+    );
 }
 
 function dashboardHeight(node) {
@@ -449,14 +483,14 @@ function dashboardHeight(node) {
     h += 17 + ROW_H * 3 + GAP * 2 + 13; // seed
     h += 34;                    // advanced
     if (advanced) h += ROW_H + GAP;
-    return h + 8;
+    return h + SECTION_GAP * 5 + 8;
 }
 
 function layout(node, refit = false) {
     if (!node.__soGenDashboardReady) return;
     layoutGenerationInputSockets(node);
     for (const name of CANONICAL_NAMES) hideNativeWidget(widget(node, name));
-    node.bgcolor = CMYKG.black;
+    applyStudioNodeColors(node);
     node.size[0] = Math.max(Number(node.size?.[0] || 0), MIN_WIDTH);
     const desired = dashboardTop(node) + dashboardHeight(node) + 18;
     if (refit) node.size[1] = desired;
@@ -478,7 +512,7 @@ function drawDashboard(node, ctx) {
     ctx.save();
 
     // Encoding
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 68, 9, .43);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 68, 9, .43, CMYKG.cyan);
     section(ctx, "Encoding", x + 2, y + 7, CMYKG.cyan);
     y += 17;
     const encW = w * .62;
@@ -486,20 +520,20 @@ function drawDashboard(node, ctx) {
     valueRow(ctx, x + encW + GAP, y, w - encW - GAP, ROW_H, "VAE", widget(node, "vae_name")?.value ?? "");
     hit(node, "clip", x, y, encW, ROW_H, () => openChoice(node, "Text encoder", "clip_name", readValues(widget(node, "clip_name"))));
     hit(node, "vae", x + encW + GAP, y, w - encW - GAP, ROW_H, () => openChoice(node, "VAE", "vae_name", readValues(widget(node, "vae_name"))));
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
     // Conditioning status
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 68, 9, .43);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 68, 9, .43, CMYKG.magenta);
     section(ctx, "Conditioning", x + 2, y + 7, CMYKG.magenta);
     y += 17;
     const posExternal = inputConnected(node, "positive_conditioning");
     const negExternal = inputConnected(node, "negative_conditioning");
     statusRow(ctx, x, y, half, ROW_H, "Positive", posExternal ? "External conditioning" : "Prompt text", posExternal, CMYKG.magenta);
     statusRow(ctx, x + half + GAP, y, half, ROW_H, "Negative", negExternal ? "External conditioning" : "Empty fallback", negExternal, CMYKG.magenta);
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
     // Canvas
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 114, 9, .43);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 114, 9, .43, CMYKG.yellow);
     section(ctx, "Canvas", x + 2, y + 7, CMYKG.yellow);
     text(ctx, `${rw} × ${rh} · batch ${batch}`, x + w - 2, y + 7, { align: "right", color: "#b8b172", font: "10px Segoe UI, Arial" });
     y += 17;
@@ -514,15 +548,22 @@ function drawDashboard(node, ctx) {
         hit(node, "aspect", x, y, half, ROW_H, () => openChoice(node, "Aspect preset", "aspect_preset", readValues(widget(node, "aspect_preset"))));
         hit(node, "mp", x + half + GAP, y, half, ROW_H, (event) => editNumber(node, "megapixels", "Megapixels", event));
     } else {
-        valueRow(ctx, x, y, half, ROW_H, "Width", widget(node, "custom_width")?.value ?? 1440, { chevron: false });
-        valueRow(ctx, x + half + GAP, y, half, ROW_H, "Height", widget(node, "custom_height")?.value ?? 1920, { chevron: false });
-        hit(node, "width", x, y, half, ROW_H, (event) => editNumber(node, "custom_width", "Width", event));
-        hit(node, "height", x + half + GAP, y, half, ROW_H, (event) => editNumber(node, "custom_height", "Height", event));
+        const swapW = 42;
+        const dimensionW = (w - GAP * 2 - swapW) / 2;
+        const swapX = x + dimensionW + GAP;
+        const heightX = swapX + swapW + GAP;
+        valueRow(ctx, x, y, dimensionW, ROW_H, "Width", widget(node, "custom_width")?.value ?? 1440, { chevron: false });
+        roundRect(ctx, swapX, y, swapW, ROW_H, 7, "rgba(246,230,90,.12)", `${CMYKG.yellow}88`);
+        text(ctx, "⇄", swapX + swapW / 2, y + ROW_H / 2, { align: "center", color: CMYKG.yellow, font: "700 18px Segoe UI Symbol, Arial" });
+        valueRow(ctx, heightX, y, dimensionW, ROW_H, "Height", widget(node, "custom_height")?.value ?? 1920, { chevron: false });
+        hit(node, "width", x, y, dimensionW, ROW_H, (event) => editNumber(node, "custom_width", "Width", event));
+        hit(node, "swap_dimensions", swapX, y, swapW, ROW_H, () => swapCustomDimensions(node));
+        hit(node, "height", heightX, y, dimensionW, ROW_H, (event) => editNumber(node, "custom_height", "Height", event));
     }
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
     // Sampling
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 114, 9, .43);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 114, 9, .43, CMYKG.green);
     section(ctx, "Sampling", x + 2, y + 7, CMYKG.green);
     y += 17;
     valueRow(ctx, x, y, half, ROW_H, "Sampler", widget(node, "sampler_name")?.value ?? "euler");
@@ -540,10 +581,10 @@ function drawDashboard(node, ctx) {
         valueRow(ctx, px, y, quarter, ROW_H, label, value, { chevron: false });
         hit(node, name, px, y, quarter, ROW_H, (event) => editNumber(node, name, label, event));
     });
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
     // Seed
-    gradientFrame(ctx, x - 4, y - 5, w + 8, 160, 9, .43);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, 160, 9, .43, CMYKG.cyan);
     section(ctx, "Seed", x + 2, y + 7, CMYKG.cyan);
     y += 17;
     const seedValue = Number(widget(node, "seed_value")?.value ?? -1);
@@ -578,11 +619,11 @@ function drawDashboard(node, ctx) {
             node.__soSeedCopiedTimer = setTimeout(() => { node.__soSeedCopied = false; node.setDirtyCanvas?.(true, true); }, 900);
         }
     });
-    y += ROW_H + 13;
+    y += ROW_H + 13 + SECTION_GAP;
 
     // Advanced encoding controls
     const advanced = Boolean(node.properties?.so_generation_dashboard_advanced);
-    gradientFrame(ctx, x - 4, y - 5, w + 8, advanced ? 86 : 42, 9, .36);
+    gradientFrame(ctx, x - 4, y - 5, w + 8, advanced ? 86 : 42, 9, .36, CMYKG.yellow);
     roundRect(ctx, x, y, w, 30, 7, "rgba(31,31,34,.96)", "rgba(246,230,90,.25)");
     text(ctx, `Advanced ${advanced ? "▾" : "▸"}`, x + 11, y + 15, { color: CMYKG.yellow, font: "700 10px Segoe UI, Arial" });
     text(ctx, "CLIP type + device", x + w - 11, y + 15, { align: "right", color: "#77777e", font: "10px Segoe UI, Arial" });
@@ -606,7 +647,7 @@ function installDashboard(node) {
     node.properties = node.properties || {};
     node.properties.so_generation_core_schema_version = SCHEMA_VERSION;
     node.__soGenDashboardReady = true;
-    node.color = "#222222";
+    applyStudioNodeColors(node);
     layoutGenerationInputSockets(node);
     for (const name of CANONICAL_NAMES) hideNativeWidget(widget(node, name));
     const saved = node.properties.so_last_used_seed;
@@ -634,6 +675,17 @@ app.registerExtension({
                     return result;
                 }
             }
+            if (!isInput && this.__soGenDashboardReady) {
+                let slotIndex = typeof slot === "number" ? slot : this.findOutputSlot?.(slot);
+                if (!Number.isInteger(slotIndex) || slotIndex < 0) slotIndex = Number(slot);
+                const anchor = generationOutputAnchor(this, slotIndex);
+                if (anchor) {
+                    const result = out || [0, 0];
+                    result[0] = Number(this.pos?.[0] || 0) + anchor.x;
+                    result[1] = Number(this.pos?.[1] || 0) + anchor.y;
+                    return result;
+                }
+            }
             return originalGetConnectionPos?.apply(this, arguments);
         };
 
@@ -653,6 +705,22 @@ app.registerExtension({
             };
         }
 
+        const originalGetOutputPos = nodeType.prototype.getOutputPos;
+        if (typeof originalGetOutputPos === "function") {
+            nodeType.prototype.getOutputPos = function (slotIndex, out) {
+                if (this.__soGenDashboardReady) {
+                    const anchor = generationOutputAnchor(this, slotIndex);
+                    if (anchor) {
+                        const result = out || [0, 0];
+                        result[0] = Number(this.pos?.[0] || 0) + anchor.x;
+                        result[1] = Number(this.pos?.[1] || 0) + anchor.y;
+                        return result;
+                    }
+                }
+                return originalGetOutputPos.apply(this, arguments);
+            };
+        }
+
         const originalConfigureMethod = nodeType.prototype.configure;
         nodeType.prototype.configure = function (info) {
             migrateValuesOnce(info);
@@ -669,16 +737,20 @@ app.registerExtension({
 
         nodeType.prototype.onNodeCreated = function () {
             const result = originalCreated?.apply(this, arguments);
-            this.bgcolor = CMYKG.black;
+            applyStudioNodeColors(this);
             setTimeout(() => installDashboard(this), 0);
             return result;
         };
 
         nodeType.prototype.onConfigure = function (info) {
             const result = originalConfigured?.apply(this, arguments);
-            this.bgcolor = CMYKG.black;
+            applyStudioNodeColors(this);
             const saved = info?.properties?.so_last_used_seed ?? this.properties?.so_last_used_seed;
             if (saved != null) this.__soLastUsedSeed = saved;
+            const savedWidth = info?.properties?.so_last_width ?? this.properties?.so_last_width;
+            const savedHeight = info?.properties?.so_last_height ?? this.properties?.so_last_height;
+            if (savedWidth != null) this.__soLastWidth = Number(savedWidth);
+            if (savedHeight != null) this.__soLastHeight = Number(savedHeight);
             setTimeout(() => installDashboard(this), 0);
             return result;
         };
@@ -693,6 +765,13 @@ app.registerExtension({
                 this.properties.so_last_used_seed = value;
                 this.setDirtyCanvas?.(true, true);
             }
+            let width = message?.width; if (Array.isArray(width)) width = width[0];
+            let height = message?.height; if (Array.isArray(height)) height = height[0];
+            if (Number(width) > 0 && Number(height) > 0) {
+                this.__soLastWidth = Number(width); this.__soLastHeight = Number(height);
+                this.properties = this.properties || {};
+                this.properties.so_last_width = Number(width); this.properties.so_last_height = Number(height);
+            }
         };
 
         nodeType.prototype.serialize = function () {
@@ -701,6 +780,8 @@ app.registerExtension({
                 ...(data.properties || {}),
                 so_generation_core_schema_version: SCHEMA_VERSION,
                 so_last_used_seed: this.__soLastUsedSeed ?? null,
+                so_last_width: this.__soLastWidth ?? null,
+                so_last_height: this.__soLastHeight ?? null,
                 so_generation_dashboard_advanced: Boolean(this.properties?.so_generation_dashboard_advanced),
             };
             data.widgets_values = CANONICAL_NAMES.map((name) => widget(this, name)?.value);
@@ -708,6 +789,7 @@ app.registerExtension({
         };
 
         nodeType.prototype.onDrawForeground = function (ctx) {
+            drawStudioChrome(this, ctx, "generation");
             try { originalForeground?.apply(this, arguments); } catch (error) {}
             drawDashboard(this, ctx);
         };

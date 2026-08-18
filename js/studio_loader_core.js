@@ -7,6 +7,13 @@
  */
 
 import { app } from "../../../scripts/app.js";
+import {
+    STUDIO_LAYOUT,
+    STUDIO_THEME,
+    applyStudioNodeColors,
+    drawStudioChrome,
+    drawStudioSectionFrame,
+} from "./studio_theme.js";
 
 import {
     drawInfoIcon,
@@ -33,13 +40,22 @@ const TARGET = "SOLoaderCoreEngineStudio";
 const NONE = "None";
 const ALL_FOLDERS = "[All LoRA folders]";
 const ROOT_FOLDER = "[LoRA root only]";
+const FAVORITES_FOLDER = "[★ Favorites]";
+const UNTESTED_FOLDER = "[◌ Untested / Retest]";
+const REVIEW_API = "/sickollie/library-review";
 const ALL_EPOCHS = "[All epochs]";
 const NO_EPOCH_TAG = "[No epoch tag]";
+const ALL_LIBRARY_STATES = "[All Library statuses]";
+const FAVORITES_FILTER = "[★ Favorites]";
+const TESTED_FILTER = "[✓ Tested]";
+const UNTESTED_FILTER = "[◌ Untested / Retest]";
+const LIBRARY_FILTERS = [ALL_LIBRARY_STATES, FAVORITES_FILTER, TESTED_FILTER, UNTESTED_FILTER];
+const LORA_SORT_MODES = ["Name", "Most used", "Least used", "Recently used"];
 const CONTROL_MODES = ["fixed", "increment", "decrement", "randomize", "shuffle"];
 const DEFAULT_CLEAN_NAME_MODE = "auto:1";
 const SECONDARY_PREFIX = "secondary_lora_";
 const MAX_SECONDARY_LORAS = 10;
-const LOADER_DASHBOARD_VERSION = 2;
+const LOADER_DASHBOARD_VERSION = 3;
 const LOADER_CANONICAL_NAMES = [
     "diffusion_model",
     "weight_dtype",
@@ -55,6 +71,8 @@ const LOADER_CANONICAL_NAMES = [
     "off_name",
     "auto_clean_name",
     "cleanup_rules",
+    "library_filter",
+    "lora_sort",
 ];
 
 function widget(node, name) {
@@ -65,6 +83,58 @@ function normalizePath(value) {
     return String(value ?? "")
         .replaceAll("\\", "/")
         .replace(/^\/+|\/+$/g, "");
+}
+
+function loraReviewState(node, loraName) {
+    return node?.__soReviewStates?.[normalizePath(loraName).toLowerCase()] || "none";
+}
+
+function reviewTone(state) {
+    return ({ favorite: "#f6e65a", keep: "#6ee7a2", generated: "#f4f1f6", retest: "#35d7ff", reject: "#ff536e", tested: "#f4f1f6" })[state] || "#8a8490";
+}
+
+function loraUseCount(node, loraName) {
+    return Math.max(0, Number(node?.__soReviewUsage?.[normalizePath(loraName).toLowerCase()] || 0));
+}
+
+function loraLastUsed(node, loraName) {
+    return String(node?.__soReviewLastUsed?.[normalizePath(loraName).toLowerCase()] || "");
+}
+
+async function refreshReviewCollections(node) {
+    try {
+        const response = await fetch(`${REVIEW_API}/collections`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        node.__soReviewStates = data.states || {};
+        node.__soReviewUsage = data.usage || {};
+        node.__soReviewLastUsed = data.last_used || {};
+        refreshMainChoices(node, false);
+        node.setDirtyCanvas?.(true, true);
+    } catch (error) {
+        console.warn("[Sick Ollie Loader Core] Could not load review collections", error);
+    }
+}
+
+async function setLoaderReview(node, state) {
+    const lora = String(widget(node, "main_lora")?.value ?? NONE);
+    if (!lora || lora === NONE) return;
+    const key = normalizePath(lora).toLowerCase();
+    const previous = loraReviewState(node, lora);
+    const next = previous === state ? "none" : state;
+    node.__soReviewStates = { ...(node.__soReviewStates || {}), [key]: next };
+    node.__soReviewFlash = next; node.setDirtyCanvas?.(true, true);
+    try { navigator.vibrate?.(18); } catch (error) {}
+    try {
+        const response = await fetch(`${REVIEW_API}/review-lora`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lora, state: next }) });
+        if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+        if (String(widget(node, "library_filter")?.value) !== ALL_LIBRARY_STATES) refreshMainChoices(node, true);
+    } catch (error) {
+        node.__soReviewStates[key] = previous;
+        console.warn("[Sick Ollie Loader Core] Review update failed", error);
+    }
+    clearTimeout(node.__soReviewFlashTimer);
+    node.__soReviewFlashTimer = setTimeout(() => { node.__soReviewFlash = ""; node.setDirtyCanvas?.(true, true); }, 850);
 }
 
 function parentFolder(loraName) {
@@ -141,11 +211,12 @@ function allFolderPaths(node) {
     }
     return (node.__soAllFolderChoices || [])
         .map((value) => String(value ?? ""))
-        .filter((value) => value && value !== ALL_FOLDERS && value !== ROOT_FOLDER);
+        .filter((value) => value && ![ALL_FOLDERS, ROOT_FOLDER, FAVORITES_FOLDER, UNTESTED_FOLDER].includes(value));
 }
 
 function folderNavigatorChildren(node, selectedValue) {
     const selected = String(selectedValue ?? ALL_FOLDERS);
+    if ([FAVORITES_FOLDER, UNTESTED_FOLDER].includes(selected)) return [];
     const base = selected === ALL_FOLDERS || selected === ROOT_FOLDER
         ? ""
         : normalizePath(selected);
@@ -181,6 +252,8 @@ function loaderBrowserFolderText(value) {
     const selected = String(value ?? ALL_FOLDERS);
     if (selected === ALL_FOLDERS) return "LoRA Root · all folders";
     if (selected === ROOT_FOLDER) return "LoRA Root · files only";
+    if (selected === FAVORITES_FOLDER) return "★ Favorites";
+    if (selected === UNTESTED_FOLDER) return "◌ Untested / Retest";
     return normalizePath(selected);
 }
 
@@ -330,6 +403,7 @@ function setLoaderMainLora(node, value) {
 
 function directLorasForBrowser(node, folderValue) {
     const selected = String(folderValue ?? ALL_FOLDERS);
+    if (selected === FAVORITES_FOLDER || selected === UNTESTED_FOLDER) return folderScopedLoras(node).sort((a, b) => loraBrowserBasename(a).localeCompare(loraBrowserBasename(b)));
     const parent = selected === ALL_FOLDERS || selected === ROOT_FOLDER ? "" : normalizePath(selected);
     return (node.__soAllMainLoras || [])
         .map((value) => String(value ?? ""))
@@ -494,6 +568,7 @@ function folderMatches(loraName, folderName, includeSubfolders) {
 
     if (folderName === ALL_FOLDERS) return true;
     if (folderName === ROOT_FOLDER) return parent === "";
+    if (folderName === FAVORITES_FOLDER || folderName === UNTESTED_FOLDER) return true;
 
     const selected = normalizePath(folderName);
 
@@ -684,6 +759,7 @@ function ensureCleanNameCombo(node) {
         "cleanup_rules",
         savedValue,
         () => {
+            publishLoaderLiveOutputs(node);
             node.setDirtyCanvas?.(true, true);
         },
         { values: [] },
@@ -732,6 +808,7 @@ function refreshCleanNameChoices(node) {
         choices[Math.min(Math.max(currentIndex, 1), choices.length) - 1] ??
         choices[0];
 
+    publishLoaderLiveOutputs(node);
     node.setDirtyCanvas?.(true, true);
 }
 
@@ -742,11 +819,17 @@ function folderScopedLoras(node) {
         widget(node, "include_subfolders")?.value,
     );
 
-    return (node.__soAllMainLoras || []).filter(
+    let names = (node.__soAllMainLoras || []).filter(
         (name) =>
             name !== NONE &&
             folderMatches(name, folderName, includeSubfolders),
     );
+    const libraryFilter = String(widget(node, "library_filter")?.value ?? ALL_LIBRARY_STATES);
+    const effectiveFilter = folderName === FAVORITES_FOLDER ? FAVORITES_FILTER : folderName === UNTESTED_FOLDER ? UNTESTED_FILTER : libraryFilter;
+    if (effectiveFilter === FAVORITES_FILTER) names = names.filter((name) => loraReviewState(node, name) === "favorite");
+    if (effectiveFilter === TESTED_FILTER) names = names.filter((name) => loraUseCount(node, name) > 0 && loraReviewState(node, name) !== "retest");
+    if (effectiveFilter === UNTESTED_FILTER) names = names.filter((name) => loraUseCount(node, name) === 0 || loraReviewState(node, name) === "retest");
+    return names;
 }
 
 function epochMatches(loraName, filterValue) {
@@ -798,9 +881,16 @@ function allowedMainLoras(node) {
     const epochFilter =
         widget(node, "epoch_filter")?.value ?? ALL_EPOCHS;
 
-    return folderScopedLoras(node).filter(
+    const names = folderScopedLoras(node).filter(
         (name) => epochMatches(name, epochFilter),
     );
+    const sortMode = String(widget(node, "lora_sort")?.value ?? "Name");
+    if (sortMode === "Most used") return names.sort((a, b) => loraUseCount(node, b) - loraUseCount(node, a) || a.localeCompare(b));
+    if (sortMode === "Least used") return names.sort((a, b) => loraUseCount(node, a) - loraUseCount(node, b) || a.localeCompare(b));
+    if (sortMode === "Recently used") {
+        return names.sort((a, b) => loraLastUsed(node, b).localeCompare(loraLastUsed(node, a)) || a.localeCompare(b));
+    }
+    return names.sort((a, b) => a.localeCompare(b));
 }
 
 function refreshMainChoices(node, chooseFirst = false) {
@@ -949,10 +1039,20 @@ function displayTriggerValue(value) {
     return text.length ? text : "none";
 }
 
+function showMainLoraInfo(node) {
+    const value = String(widget(node, "main_lora")?.value ?? NONE);
+    if (!value || value === NONE) return;
+    const dialog = new RgthreeLoraInfoDialog(value).show();
+    // This is deliberately the same metadata dialog used by Secondary LoRAs,
+    // so the Main LoRA finally has an honest Civitai/metadata inspection path
+    // without asking users to temporarily add it as a secondary.
+    dialog.addEventListener?.("close", () => node.setDirtyCanvas?.(true, true));
+}
+
 async function fetchMainTriggerFromServer(mainValue) {
     const value = String(mainValue ?? "").trim();
     if (!value || value === NONE) {
-        return "";
+        return { trigger: "", source: "" };
     }
 
     const url = `/sickollie/studio/loader-core/main-trigger?lora=${encodeURIComponent(value)}`;
@@ -962,7 +1062,10 @@ async function fetchMainTriggerFromServer(mainValue) {
     }
 
     const payload = await response.json();
-    return String(payload?.trigger ?? "").trim();
+    return {
+        trigger: String(payload?.trigger ?? "").trim(),
+        source: String(payload?.source ?? "").trim(),
+    };
 }
 
 function updateTriggerButton(node) {
@@ -1030,54 +1133,61 @@ function ensureTriggerButton(node) {
 async function refreshMainTrigger(node, force = false) {
     const mainValue = String(widget(node, "main_lora")?.value ?? NONE);
     node.__soMainTrigger = "";
+    node.__soMainTriggerSource = "";
 
     if (!mainValue || mainValue === NONE) {
         updateTriggerButton(node);
+        publishLoaderLiveOutputs(node);
         return "";
     }
 
     try {
-        node.__soMainTrigger = await fetchMainTriggerFromServer(mainValue);
+        const resolved = await fetchMainTriggerFromServer(mainValue);
+        node.__soMainTrigger = resolved.trigger;
+        node.__soMainTriggerSource = resolved.source;
     } catch (error) {
         console.warn(
-            "[Sick Ollie Loader Core] Could not read main LoRA modelspec.title",
+            "[Sick Ollie Loader Core] Could not resolve the main LoRA trigger",
             error,
         );
         node.__soMainTrigger = "";
+        node.__soMainTriggerSource = "";
     }
 
     updateTriggerButton(node);
+    publishLoaderLiveOutputs(node);
     return node.__soMainTrigger;
 }
 
 
-const DASH_MIN_WIDTH = 720;
-const DASH_PAD = 10;
-const DASH_GAP = 7;
-const DASH_ROW_H = 30;
-const DASH_COLLAPSED_H = 392;
-const DASH_EXPANDED_H = 434;
+const DASH_MIN_WIDTH = STUDIO_LAYOUT.minWidth;
+const DASH_PAD = STUDIO_LAYOUT.pad;
+const DASH_GAP = STUDIO_LAYOUT.gap;
+const DASH_ROW_H = STUDIO_LAYOUT.rowHeight;
+const DASH_SECTION_GAP = STUDIO_LAYOUT.sectionGap;
+const DASH_COLLAPSED_H = 437;
+const DASH_EXPANDED_H = 473;
 
 // Loader Core has four visible outputs but no visible inputs. Stock LiteGraph
 // stacks those outputs at the full node-slot spacing, which leaves a noticeably
 // larger empty shelf above the dashboard than the other Studio Core nodes.
 // Keep the sockets and labels intact, but compact just this output stack so the
 // MODEL card can sit at the same visual height as its siblings.
-const LOADER_OUTPUT_START_Y = 37;
-const LOADER_OUTPUT_STEP_Y = 16;
-const LOADER_DASH_MIN_TOP = 94;
+const LOADER_OUTPUT_START_Y = STUDIO_LAYOUT.socketStart;
+const LOADER_OUTPUT_STEP_Y = STUDIO_LAYOUT.socketStep;
+const LOADER_DASH_MIN_TOP = STUDIO_LAYOUT.headerHeight + STUDIO_LAYOUT.socketGap;
 
 const DASH_COLORS = {
-    card: "rgba(24,24,27,.98)",
-    row: "rgba(39,39,43,.97)",
-    outline: "rgba(125,125,135,.42)",
-    label: "#9a9aa3",
-    text: "#ececef",
-    cyan: "#35d7ff",
-    magenta: "#ff4ab8",
-    yellow: "#f6e65a",
-    green: "#6ee7a2",
-    accent: "#ff4ab8",
+    card: STUDIO_THEME.panel,
+    row: STUDIO_THEME.row,
+    outline: STUDIO_THEME.outline,
+    label: STUDIO_THEME.label,
+    text: STUDIO_THEME.text,
+    cyan: STUDIO_THEME.cyan,
+    magenta: STUDIO_THEME.magenta,
+    yellow: STUDIO_THEME.yellow,
+    green: STUDIO_THEME.green,
+    accent: STUDIO_THEME.magenta,
 };
 
 function layoutLoaderOutputSockets(node) {
@@ -1107,7 +1217,7 @@ function loaderOutputAnchor(node, slotIndex) {
 
 function loaderDashboardTop(node) {
     layoutLoaderOutputSockets(node);
-    return Math.max(LOADER_DASH_MIN_TOP, loaderOutputBottom(node) + 7);
+    return Math.max(LOADER_DASH_MIN_TOP, loaderOutputBottom(node) + STUDIO_LAYOUT.socketGap);
 }
 
 function loaderDashboardHeight(node) {
@@ -1129,15 +1239,8 @@ function drawRoundRect(ctx, x, y, w, h, radius = 7, fill = null, stroke = null) 
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
 }
 
-function drawCMYKGFrame(ctx, x, y, w, h, radius = 9, alpha = .48) {
-    ctx.save();
-    drawRoundRect(ctx, x, y, w, h, radius, "rgba(10,10,12,.24)", null);
-    const g = ctx.createLinearGradient(x, y, x + w, y + h);
-    g.addColorStop(0, DASH_COLORS.cyan); g.addColorStop(.34, DASH_COLORS.magenta);
-    g.addColorStop(.67, DASH_COLORS.yellow); g.addColorStop(1, DASH_COLORS.green);
-    ctx.globalAlpha = alpha;
-    drawRoundRect(ctx, x, y, w, h, radius, null, g);
-    ctx.restore();
+function drawCMYKGFrame(ctx, x, y, w, h, radius = 9, alpha = .48, accent = DASH_COLORS.magenta) {
+    drawStudioSectionFrame(ctx, x, y, w, h, accent, radius, alpha);
 }
 
 function dashText(ctx, text, x, y, options = {}) {
@@ -1209,6 +1312,17 @@ function dashboardCleanName(node) {
     return cleanModeCandidate(raw) || legacyRecommendedCleanName(node, parseCleanModeIndex(raw));
 }
 
+function publishLoaderLiveOutputs(node) {
+    if (!node) return;
+    node.__soLiveOutputs = {
+        ...(node.__soLiveOutputs || {}),
+        raw_stem: currentMainStem(node),
+        clean_name: dashboardCleanName(node),
+        main_trigger: String(node.__soMainTrigger ?? ""),
+        main_folder: dashboardMainFolderLeaf(node),
+    };
+}
+
 function openDashboardChoice(node, title, widgetName, values, formatter = null) {
     const target = widget(node, widgetName);
     if (!target) return;
@@ -1233,10 +1347,14 @@ function openDashboardChoice(node, title, widgetName, values, formatter = null) 
         for (const value of filtered.slice(0, 280)) {
             const shown = formatter ? formatter(value) : value;
             const active = String(target.value ?? "") === value;
-            browserRow(shell.list, `${active ? "✓  " : ""}${shown}`, "file", () => {
+            const row = browserRow(shell.list, `${active ? "✓  " : ""}${shown}`, "file", () => {
                 dashboardSet(node, widgetName, value);
                 closeSOFolderBrowser();
             }, value);
+            if (widgetName === "main_lora" && value !== NONE) {
+                const state = loraReviewState(node, value);
+                row.style.color = state === "none" && loraUseCount(node, value) > 0 ? reviewTone("tested") : reviewTone(state);
+            }
         }
         if (!filtered.length) browserRow(shell.list, "No matches", "action", () => {});
     };
@@ -1254,10 +1372,13 @@ function drawLoaderDashboard(node, ctx) {
     let y = top;
 
     ctx.save();
-    drawRoundRect(ctx, x - 2, y - 4, w + 4, loaderDashboardHeight(node), 10, "rgba(10,10,12,.34)", null);
-    drawCMYKGFrame(ctx, x - 2, y - 4, w + 4, loaderDashboardHeight(node), 10, .34);
+    drawRoundRect(ctx, x - 2, y - 4, w + 4, loaderDashboardHeight(node), 10, "rgba(10,8,14,.48)", null);
+    drawCMYKGFrame(ctx, x - 2, y - 4, w + 4, loaderDashboardHeight(node), 10, .28, DASH_COLORS.magenta);
+    if (Number(node.__soAttentionUntil || 0) > Date.now()) {
+        drawCMYKGFrame(ctx, x - 7, y - 9, w + 14, loaderDashboardHeight(node) + 10, 12, .95, DASH_COLORS.green);
+    }
 
-    drawCMYKGFrame(ctx, x - 4, y - 5, w + 8, 64, 9, .42);
+    drawCMYKGFrame(ctx, x - 4, y - 5, w + 8, 68, 9, .52, DASH_COLORS.cyan);
     dashSection(ctx, "Model", x + 2, y + 7, DASH_COLORS.cyan);
     y += 17;
     const modelW = w * .72 - gap / 2;
@@ -1266,9 +1387,9 @@ function drawLoaderDashboard(node, ctx) {
     dashValueRow(ctx, x + modelW + gap, y, weightW, rowH, "Weight", widget(node, "weight_dtype")?.value ?? "default");
     dashHit(node, "model", x, y, modelW, rowH, () => openDashboardChoice(node, "Diffusion model", "diffusion_model", readValues(widget(node, "diffusion_model")), loraBrowserBasename));
     dashHit(node, "weight", x + modelW + gap, y, weightW, rowH, () => openDashboardChoice(node, "Weight dtype", "weight_dtype", readValues(widget(node, "weight_dtype"))));
-    y += rowH + 13;
+    y += rowH + 13 + DASH_SECTION_GAP;
 
-    drawCMYKGFrame(ctx, x - 4, y - 5, w + 8, 177, 9, .46);
+    drawCMYKGFrame(ctx, x - 4, y - 5, w + 8, 246, 9, .52, DASH_COLORS.magenta);
     dashSection(ctx, "Main LoRA", x + 2, y + 7, DASH_COLORS.magenta);
     y += 17;
     // Folder navigation and LoRA selection are intentionally separate. The
@@ -1282,8 +1403,27 @@ function drawLoaderDashboard(node, ctx) {
     const allowedMain = allowedMainLoras(node);
     const mainValue = String(widget(node, "main_lora")?.value ?? NONE);
     const mainShownValue = mainValue === NONE ? "None" : loraBrowserBasename(mainValue);
-    dashValueRow(ctx, x, y, w, rowH, `Main LoRA · ${allowedMain.length} available`, mainShownValue);
-    dashHit(node, "mainlora", x, y, w, rowH, () => {
+    const reviewButtons = [
+        ["★", "favorite", "Favorite"], ["✓", "keep", "Keep"], ["↻", "retest", "Retest"], ["×", "reject", "Reject"],
+    ];
+    const reviewButtonW = Math.max(25, rowH - 5);
+    const reviewGap = 4;
+    const reviewTotalW = reviewButtons.length * reviewButtonW + (reviewButtons.length - 1) * reviewGap;
+    const currentReview = loraReviewState(node, mainValue);
+    reviewButtons.forEach(([symbol, state, label], index) => {
+        const bx = x + index * (reviewButtonW + reviewGap);
+        const tone = reviewTone(state);
+        const active = currentReview === state || node.__soReviewFlash === state;
+        drawRoundRect(ctx, bx, y, reviewButtonW, rowH, 7, active ? `${tone}42` : DASH_COLORS.row, active ? tone : `${tone}99`);
+        dashText(ctx, symbol, bx + reviewButtonW / 2, y + rowH / 2, { align: "center", color: tone, font: "700 14px Arial" });
+        dashHit(node, `review-${state}`, bx, y, reviewButtonW, rowH, () => setLoaderReview(node, state));
+    });
+    const mainX = x + reviewTotalW + gap;
+    const mainW = w - reviewTotalW - gap;
+    const usedCount = loraUseCount(node, mainValue);
+    const mainLabel = `Main LoRA · ${allowedMain.length} available${usedCount ? ` · used ${usedCount}×` : ""}`;
+    dashValueRow(ctx, mainX, y, mainW, rowH, mainLabel, mainShownValue, { valueColor: currentReview === "none" && usedCount ? reviewTone("tested") : reviewTone(currentReview) });
+    dashHit(node, "mainlora", mainX, y, mainW, rowH, () => {
         openDashboardChoice(
             node,
             `Main LoRA · ${allowedMain.length} available`,
@@ -1307,48 +1447,63 @@ function drawLoaderDashboard(node, ctx) {
     dashHit(node, "epoch", x + (third + gap) * 2, y, third, rowH, () => openDashboardChoice(node, "Epoch filter", "epoch_filter", readValues(widget(node, "epoch_filter"))));
     y += rowH + gap;
 
-    const half = (w - gap) / 2;
-    dashValueRow(ctx, x, y, half, rowH, "Clean name", dashboardCleanName(node));
+    const filterHalf = (w - gap) / 2;
+    dashValueRow(ctx, x, y, filterHalf, rowH, "Library filter", widget(node, "library_filter")?.value ?? ALL_LIBRARY_STATES);
+    dashValueRow(ctx, x + filterHalf + gap, y, filterHalf, rowH, "Sort", widget(node, "lora_sort")?.value ?? "Name");
+    dashHit(node, "library-filter", x, y, filterHalf, rowH, () => openDashboardChoice(node, "Library filter", "library_filter", LIBRARY_FILTERS));
+    dashHit(node, "lora-sort", x + filterHalf + gap, y, filterHalf, rowH, () => openDashboardChoice(node, "LoRA sort", "lora_sort", LORA_SORT_MODES));
+    y += rowH + gap;
+
+    const cleanW = Math.floor((w - gap) * .43);
+    const triggerX = x + cleanW + gap;
+    const triggerW = w - cleanW - gap;
+    const infoW = Math.max(28, Math.min(32, rowH));
+    dashValueRow(ctx, x, y, cleanW, rowH, "Clean name", dashboardCleanName(node));
     const triggerCopied = Boolean(node.__soTriggerCopied);
     drawRoundRect(
         ctx,
-        x + half + gap,
+        triggerX,
         y,
-        half,
+        triggerW - infoW - 4,
         rowH,
         7,
         triggerCopied ? "rgba(74, 132, 101, .34)" : DASH_COLORS.row,
         triggerCopied ? "rgba(137, 213, 166, .82)" : DASH_COLORS.outline,
     );
+    const triggerSource = String(node.__soMainTriggerSource ?? "");
+    const triggerLabel = triggerSource.startsWith("civitai") ? "Trigger · Civitai" : "Trigger";
     dashText(
         ctx,
-        triggerCopied ? "Trigger · copied" : "Trigger",
-        x + half + gap + 11,
+        triggerCopied ? "Trigger · copied" : triggerLabel,
+        triggerX + 11,
         y + rowH / 2,
         { color: triggerCopied ? "#9cddb4" : DASH_COLORS.label, font: "11px Arial" },
     );
     const trigger = displayTriggerValue(node.__soMainTrigger ?? "");
     ctx.save(); ctx.font = "12px Arial";
-    const trigShown = fitString(ctx, trigger, half - 105); ctx.restore();
+    const trigShown = fitString(ctx, trigger, triggerW - infoW - 105); ctx.restore();
     dashText(
         ctx,
         trigShown,
-        x + w - 35,
+        triggerX + triggerW - infoW - 35,
         y + rowH / 2,
         { align: "right", color: triggerCopied ? "#b9efca" : (trigger === "none" ? DASH_COLORS.label : DASH_COLORS.text) },
     );
-    dashText(ctx, triggerCopied ? "✓" : "📋", x + w - 11, y + rowH / 2, { align: "right", color: triggerCopied ? "#9cddb4" : DASH_COLORS.accent });
-    dashHit(node, "clean", x, y, half, rowH, () => openDashboardChoice(node, "Clean name", "cleanup_rules", readValues(widget(node, "cleanup_rules")), cleanModeCandidate));
-    dashHit(node, "trigger", x + half + gap, y, half, rowH, async () => {
+    dashText(ctx, triggerCopied ? "✓" : "📋", triggerX + triggerW - infoW - 11, y + rowH / 2, { align: "right", color: triggerCopied ? "#9cddb4" : DASH_COLORS.accent });
+    drawRoundRect(ctx, triggerX + triggerW - infoW, y, infoW, rowH, 7, "rgba(45,40,24,.95)", "rgba(246,230,90,.72)");
+    dashText(ctx, "ⓘ", triggerX + triggerW - infoW / 2, y + rowH / 2, { align: "center", color: "#f6e65a", font: "bold 13px Arial" });
+    dashHit(node, "clean", x, y, cleanW, rowH, () => openDashboardChoice(node, "Clean name", "cleanup_rules", readValues(widget(node, "cleanup_rules")), cleanModeCandidate));
+    dashHit(node, "main-info", triggerX + triggerW - infoW, y, infoW, rowH, () => showMainLoraInfo(node));
+    dashHit(node, "trigger", triggerX, y, triggerW - infoW - 4, rowH, async () => {
         const value = String(node.__soMainTrigger ?? "").trim();
         if (!value) return;
         if (await copyText(value)) triggerCopyFeedback(node);
     });
-    y += rowH + 17;
+    y += rowH + 17 + DASH_SECTION_GAP;
 
-    dashText(ctx, `Folder output: ${dashboardMainFolderLeaf(node)}`, x + 2, y - 6, { color: DASH_COLORS.label, font: "10px Arial" });
+    dashText(ctx, `Folder output: ${dashboardMainFolderLeaf(node)}`, x + 2, y - 14, { color: DASH_COLORS.label, font: "10px Arial" });
     const expanded = Boolean(node.properties?.so_loader_dashboard_advanced);
-    drawCMYKGFrame(ctx, x - 4, y - 5, w + 8, expanded ? 124 : 94, 9, .42);
+    drawCMYKGFrame(ctx, x - 4, y - 5, w + 8, expanded ? 140 : 104, 9, .52, DASH_COLORS.yellow);
     dashSection(ctx, "Testing", x + 2, y + 7, DASH_COLORS.yellow);
     y += 17;
     dashValueRow(ctx, x, y, third, rowH, "After generate", widget(node, "control_after_generate")?.value ?? "fixed");
@@ -1399,6 +1554,10 @@ function repairLoaderDashboardValues(node) {
     if (offName && typeof offName.value !== "string") offName.value = "no_lora";
     const auto = widget(node, "auto_clean_name");
     if (auto) auto.value = true;
+    const libraryFilter = widget(node, "library_filter");
+    if (libraryFilter && !LIBRARY_FILTERS.includes(String(libraryFilter.value))) libraryFilter.value = ALL_LIBRARY_STATES;
+    const loraSort = widget(node, "lora_sort");
+    if (loraSort && !LORA_SORT_MODES.includes(String(loraSort.value))) loraSort.value = "Name";
 }
 
 function hideLoaderDashboardBackingWidgets(node) {
@@ -1419,6 +1578,7 @@ function layoutLoaderDashboard(node, refit = false) {
     const top = loaderDashboardTop(node);
     node.widgets_start_y = top + loaderDashboardHeight(node) + 10;
     node.size[0] = Math.max(Number(node.size?.[0] || 0), DASH_MIN_WIDTH);
+    applyStudioNodeColors(node);
     if (refit) {
         const computed = node.computeSize?.() || [node.size[0], node.widgets_start_y + 180];
         node.size[1] = Math.max(Number(computed[1] || 0) + 8, node.widgets_start_y + 110);
@@ -1430,6 +1590,7 @@ function ensureLoaderDashboard(node) {
     node.properties = node.properties || {};
     node.properties.so_loader_dashboard_version = LOADER_DASHBOARD_VERSION;
     node.__soLoaderDashboardReady = true;
+    applyStudioNodeColors(node);
     repairLoaderDashboardValues(node);
     hideLoaderDashboardBackingWidgets(node);
     layoutLoaderDashboard(node, true);
@@ -1455,8 +1616,25 @@ function installLoaderDashboardHooks(nodeType) {
         return originalGetConnectionPos?.apply(this, arguments);
     };
 
+    const originalGetOutputPos = nodeType.prototype.getOutputPos;
+    if (typeof originalGetOutputPos === "function") {
+        nodeType.prototype.getOutputPos = function (slotIndex, out) {
+            if (this.__soLoaderDashboardReady) {
+                const anchor = loaderOutputAnchor(this, slotIndex);
+                if (anchor) {
+                    const result = out || [0, 0];
+                    result[0] = Number(this.pos?.[0] || 0) + anchor.x;
+                    result[1] = Number(this.pos?.[1] || 0) + anchor.y;
+                    return result;
+                }
+            }
+            return originalGetOutputPos.apply(this, arguments);
+        };
+    }
+
     const originalForeground = nodeType.prototype.onDrawForeground;
     nodeType.prototype.onDrawForeground = function (ctx) {
+        drawStudioChrome(this, ctx, "loader");
         try { originalForeground?.apply(this, arguments); } catch (error) {}
         drawLoaderDashboard(this, ctx);
     };
@@ -2282,6 +2460,22 @@ function normalizeLoaderWorkflow(info) {
         };
     }
 
+    const repairedValues = migrated?.widgets_values;
+    const hasLibraryControls = Array.isArray(repairedValues)
+        && LIBRARY_FILTERS.includes(String(repairedValues[14]))
+        && LORA_SORT_MODES.includes(String(repairedValues[15]));
+    if (Array.isArray(repairedValues) && repairedValues.length > 14 && !hasLibraryControls) {
+        migrated = {
+            ...migrated,
+            widgets_values: [
+                ...repairedValues.slice(0, 14),
+                ALL_LIBRARY_STATES,
+                "Name",
+                ...repairedValues.slice(14),
+            ],
+        };
+    }
+
     return migrated;
 }
 
@@ -2299,6 +2493,14 @@ function loaderSecondaryValues(node) {
 
 app.registerExtension({
     name: "SickOllie.Studio.LoaderCore",
+
+    setup() {
+        if (window.__soLibraryUsageListener) return;
+        window.__soLibraryUsageListener = () => {
+            for (const node of app.graph?._nodes || []) if (node.type === TARGET) refreshReviewCollections(node);
+        };
+        window.addEventListener("sickollie:library-usage-updated", window.__soLibraryUsageListener);
+    },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== TARGET) return;
@@ -2344,7 +2546,7 @@ app.registerExtension({
                     arguments,
                 );
 
-            this.bgcolor = "#000000";
+            applyStudioNodeColors(this);
             ensureCleanNameCombo(this);
 
             const mainWidget = widget(
@@ -2390,6 +2592,8 @@ app.registerExtension({
             for (const name of [
                 "folder_name",
                 "include_subfolders",
+                "library_filter",
+                "lora_sort",
             ]) {
                 const filterWidget = widget(
                     this,
@@ -2414,6 +2618,7 @@ app.registerExtension({
                             true,
                         );
                         refreshCleanNameChoices(this);
+                        refreshReviewCollections(this);
                     }
                 };
             }
@@ -2451,6 +2656,7 @@ app.registerExtension({
             refreshMainChoices(this, false);
             refreshCleanNameChoices(this);
             refreshMainTrigger(this, false);
+            refreshReviewCollections(this);
             layoutLoaderDashboard(this, true);
 
             return result;
@@ -2460,7 +2666,7 @@ app.registerExtension({
             nodeType.prototype.onConfigure;
 
         nodeType.prototype.onConfigure = function (info) {
-            this.bgcolor = "#000000";
+            applyStudioNodeColors(this);
             const configuredInfo =
                 normalizeLoaderWorkflow(info);
 
@@ -2484,6 +2690,7 @@ app.registerExtension({
                 refreshMainChoices(this, false);
                 refreshCleanNameChoices(this);
                 refreshMainTrigger(this, false);
+                refreshReviewCollections(this);
                 layoutLoaderDashboard(this, true);
             }, 0);
 
