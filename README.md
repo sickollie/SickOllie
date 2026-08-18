@@ -415,7 +415,6 @@ It can:
 - export the scan audit as CSV
 - preview and safely remove only still-empty folders
 
-The former special `girl`/`girls` prompt bucket has been removed. Those words no longer create a separate filter or destination; affected files follow the normal Standard/Templates/Masters rules.
 
 Existing grouped folders remain untouched unless **Reprocess Existing Subfolders** is enabled. See [the focused Log Organizer guide](docs/organizers/SOLO-Log-Organizer.md) for the current classification and recovery behavior.
 
